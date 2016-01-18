@@ -1,6 +1,8 @@
 package com.matthewn4444.ebml;
 
+import com.matthewn4444.ebml.node.FloatNode;
 import com.matthewn4444.ebml.node.IntNode;
+import com.matthewn4444.ebml.node.LongNode;
 import com.matthewn4444.ebml.node.MasterNode;
 import com.matthewn4444.ebml.node.StringNode;
 
@@ -98,7 +100,7 @@ public class Tracks {
         HEADER.addNode(ENTRY_NODE);
 
         ENTRY_NODE.addNode(new IntNode(NUMBER));
-        ENTRY_NODE.addNode(new IntNode(UID));
+        ENTRY_NODE.addNode(new LongNode(UID));
         ENTRY_NODE.addNode(new IntNode(TYPE));
         ENTRY_NODE.addNode(new IntNode(IS_ENABLED));
         ENTRY_NODE.addNode(new IntNode(IS_DEFAULT));
@@ -137,8 +139,8 @@ public class Tracks {
         VIDEO_ENTRY_NODE.addNode(new IntNode(ASPECT_RATIO));
         VIDEO_ENTRY_NODE.addNode(new IntNode(COLOR_SPACE));
 
-        AUDIO_ENTRY_NODE.addNode(new IntNode(SAMPLING_FREQUENCY));
-        AUDIO_ENTRY_NODE.addNode(new IntNode(OUTPUT_SAMPLING_FREQUENCY));
+        AUDIO_ENTRY_NODE.addNode(new FloatNode(SAMPLING_FREQUENCY));
+        AUDIO_ENTRY_NODE.addNode(new FloatNode(OUTPUT_SAMPLING_FREQUENCY));
         AUDIO_ENTRY_NODE.addNode(new IntNode(CHANNELS));
         AUDIO_ENTRY_NODE.addNode(new IntNode(BIT_DEPTH));
 

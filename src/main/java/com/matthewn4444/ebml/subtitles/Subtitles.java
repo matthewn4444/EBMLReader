@@ -28,8 +28,8 @@ public abstract class Subtitles {
     protected boolean mEnabled;
     protected boolean mDefault;
 
-    protected ArrayList<Caption> mUnreadCaptions;
-    protected ArrayList<Caption> mReadCaptions;
+    protected final ArrayList<Caption> mUnreadCaptions;
+    protected final ArrayList<Caption> mReadCaptions;
 
     /**
      * Creates the subtitles class from a blackgroup of data read from a cluster entry
@@ -89,15 +89,17 @@ public abstract class Subtitles {
      * @return a list of subtitles that were not read yet
      */
     public List<Caption> readUnreadSubtitles() {
-        ArrayList<Caption> list = new ArrayList<>();
-        for (Caption caption : mUnreadCaptions) {
-            list.add(caption);
-        }
+        synchronized (mUnreadCaptions) {
+            ArrayList<Caption> list = new ArrayList<>();
+            for (Caption caption : mUnreadCaptions) {
+                list.add(caption);
+            }
 
-        // Transfer the unread captions to read
-        mReadCaptions.addAll(mUnreadCaptions);
-        mUnreadCaptions.clear();
-        return list;
+            // Transfer the unread captions to read
+            mReadCaptions.addAll(mUnreadCaptions);
+            mUnreadCaptions.clear();
+            return list;
+        }
     }
 
     /**
@@ -182,7 +184,9 @@ public abstract class Subtitles {
      * @return
      */
     public int getSubtitleCount() {
-        return mReadCaptions.size() + mUnreadCaptions.size();
+        synchronized (mUnreadCaptions) {
+            return mReadCaptions.size() + mUnreadCaptions.size();
+        }
     }
 
     /**
@@ -249,6 +253,8 @@ public abstract class Subtitles {
     protected abstract String getContents();
 
     protected void appendCaption(Caption caption) {
-        mUnreadCaptions.add(caption);
+        synchronized (mUnreadCaptions) {
+            mUnreadCaptions.add(caption);
+        }
     }
 }

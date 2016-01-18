@@ -1,7 +1,7 @@
 package com.matthewn4444.ebml.node;
 
 public abstract class NodeBase {
-    public static enum Type { UNSET, INT, STRING, BYTES, BLOCK, MASTER };
+    public static enum Type { UNSET, INT, LONG, FLOAT, STRING, BYTES, BLOCK, MASTER };
 
     protected Type mType;
     protected int mId;

@@ -1,5 +1,7 @@
 package com.matthewn4444.ebml;
 
+import java.util.ArrayList;
+
 import com.matthewn4444.ebml.node.BlockNode;
 import com.matthewn4444.ebml.node.IntNode;
 import com.matthewn4444.ebml.node.MasterNode;
@@ -31,18 +33,28 @@ public class Cluster {
         int mNextTimecode;
         long mStartAddress;
         long mEndAddress;
-        long mRelativePosition;
+        int mRelativePosition;
+        boolean mHasParsed;
+
+        ArrayList<Entry> mSubEntries;
 
         public Entry(int timecode, long startAddress) {
             this(timecode, startAddress, 0);
         }
 
-        public Entry(int timecode, long startAddress, long relativePosition) {
+        public Entry(int timecode, long startAddress, int relativePosition) {
             mTimecode = timecode;
             mStartAddress = startAddress;
             mRelativePosition = relativePosition;
             mEndAddress = 0;
             mNextTimecode = 0;
+        }
+
+        public void addSubtitle(Entry entry) {
+            if (mSubEntries == null) {
+                mSubEntries = new ArrayList<>();
+            }
+            mSubEntries.add(entry);
         }
     }
 

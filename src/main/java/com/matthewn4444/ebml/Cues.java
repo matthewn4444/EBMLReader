@@ -1,6 +1,7 @@
 package com.matthewn4444.ebml;
 
 import com.matthewn4444.ebml.node.IntNode;
+import com.matthewn4444.ebml.node.LongNode;
 import com.matthewn4444.ebml.node.MasterNode;
 
 public class Cues {
@@ -27,7 +28,7 @@ public class Cues {
         POINT_NODE.addNode(TRACK_POSITION);
 
         TRACK_POSITION.addNode(new IntNode(TRACK));
-        TRACK_POSITION.addNode(new IntNode(CLUSTER_POSITION));
+        TRACK_POSITION.addNode(new LongNode(CLUSTER_POSITION));
         TRACK_POSITION.addNode(new IntNode(RELATIVE_POSITION));
         TRACK_POSITION.addNode(new IntNode(DURATION));
         TRACK_POSITION.addNode(new IntNode(BLOCK_NUMBER));

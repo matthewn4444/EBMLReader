@@ -6,6 +6,7 @@ import com.matthewn4444.ebml.Attachments.FileAttachment;
 import com.matthewn4444.ebml.elements.BlockElement;
 import com.matthewn4444.ebml.elements.ElementBase;
 import com.matthewn4444.ebml.elements.IntElement;
+import com.matthewn4444.ebml.elements.LongElement;
 import com.matthewn4444.ebml.elements.MasterElement;
 import com.matthewn4444.ebml.node.IntNode;
 import com.matthewn4444.ebml.node.MasterNode;
@@ -15,10 +16,8 @@ import com.matthewn4444.ebml.subtitles.Subtitles;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Set;
 
 public class EBMLReader {
@@ -34,6 +33,8 @@ public class EBMLReader {
     public static final int DOC_VERSION = 0x4287;
     public static final int DOC_READ_VERSION = 0x4285;
 
+    public static final int NS_TO_MS = 1000000;
+
     protected static MasterNode EBML_ROOT = new MasterNode(ID);
 
     private static final Object InitLock = new Object();
@@ -43,6 +44,7 @@ public class EBMLReader {
 
     protected MasterElement mEmblHeader;
     protected MasterElement mSegmentHeader;
+    protected MasterElement mInfoHeader;
     protected MasterElement mCuesHeader;
     protected MasterElement mTracksHeader;
     protected MasterElement mAttachmentsHeader;
@@ -54,20 +56,26 @@ public class EBMLReader {
 
     protected ArrayList<FileAttachment> mAttachments;
 
-    // Keep track of all the subs (if exists) or cluster positions for seeking
-    protected ArrayDeque<Cluster.Entry> mClusterVidEntries;
-    protected ArrayDeque<Cluster.Entry> mClusterSubEntries;
-
-    protected Iterator<Cluster.Entry> mCurrentClusterEntry;
+    // Keep track of all the video cues for getting subtitles
+    protected ArrayList<Cluster.Entry> mCueFrames;
+    protected boolean mHasCueSubtitlesPos;
 
     // Read cluster faster by only parsing subtitle related elements
     protected Set<Integer> mClusterBlockReadOnlyEl;
+
+    protected float mDurationMs;
 
     protected long mPositionOffset;
     protected long mCuesPosition;
     protected long mChaptersPosition;
     protected long mTracksPosition;
+    protected long mInfoPosition;
     protected long mAttachmentsPosition;
+
+    protected long mTracksLength;
+    protected long mAttachmentsLength;
+    protected long mCuesLength;
+    protected long mChaptersLength;
 
     // Create the ebml tree to parse the file
     private static void init() {
@@ -82,6 +90,7 @@ public class EBMLReader {
                     EBML_ROOT.addNode(new IntNode(DOC_VERSION));
                     EBML_ROOT.addNode(new IntNode(DOC_READ_VERSION));
 
+                    Info.init();
                     Segment.init();
                     Cues.init();
                     Tracks.init();
@@ -100,6 +109,7 @@ public class EBMLReader {
     */
     public EBMLReader(String path) throws IOException {
         mIsOpened = true;
+        mHasCueSubtitlesPos = false;
         mRanAccFile = new RandomAccessFile(path, "r");
     }
 
@@ -133,6 +143,66 @@ public class EBMLReader {
     }
 
     /**
+     * Gets the position of cues in this file
+     * @return cues offset
+     */
+    public long getCuesPosition() {
+        if (mSegmentHeader != null) {
+            try {
+                findCuesPosition();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        return mCuesPosition;
+    }
+
+    /**
+     * Gets the position of chapters in this file
+     * @return chapters offset
+     */
+    public long getChaptersPosition() {
+        if (mSegmentHeader != null) {
+            try {
+                findChaptersPosition();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        return mChaptersPosition;
+    }
+
+    /**
+     * Gets the position of tracks in this file
+     * @return tracks offset
+     */
+    public long getTracksPosition() {
+        if (mSegmentHeader != null) {
+            try {
+                findTracksPosition();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        return mTracksPosition;
+    }
+
+    /**
+     * Gets the position of attachments in this file
+     * @return attachments offset
+     */
+    public long getAttachmentsPosition() {
+        if (mSegmentHeader != null) {
+            try {
+                findAttachmentsPosition();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        return mAttachmentsPosition;
+    }
+
+    /**
      * Read header of the file.
      * You should use this first to see if this file is an MKV file and supports EBML.
      * This also reads the segment information for seek head which will contain all the ids and
@@ -152,6 +222,7 @@ public class EBMLReader {
         mChaptersPosition = 0;
 
         // Parse the header content
+        mRanAccFile.seek(0);
         if (!mEmblHeader.parse(mRanAccFile)) {
             return false;
         }
@@ -174,7 +245,81 @@ public class EBMLReader {
         if (!mSegmentHeader.parse(mRanAccFile)) {
             throw new EBMLParsingException("Unable to parse segment properly");
         }
+
+        // Parse the info segment
+        if (mInfoHeader == null) {
+            findInfoPosition();
+
+            mRanAccFile.seek(mInfoPosition);
+            mInfoHeader = new MasterElement(Info.HEADER);
+            if (!mInfoHeader.parse(mRanAccFile)) {
+                throw new EBMLParsingException("Unable to parse info properly");
+            }
+
+            // Get the duration of the video
+            int timescale = mInfoHeader.searchForIntValue(Info.TIMECODE_SCALE, NS_TO_MS);
+            mDurationMs = mInfoHeader.searchForFloatValue(Info.DURATION, 0) / timescale * NS_TO_MS;
+        }
         return true;
+    }
+
+    /**
+     * Gets the tracks length region
+     * @return the length of the region
+     * @throws IOException
+     */
+    public long getTracksDataLength() throws IOException {
+        findTracksPosition();
+        mRanAccFile.seek(mTracksPosition);
+        if ((mTracksLength = MasterElement.parseUpToLength(mRanAccFile, Tracks.ID)) == 0) {
+            throw new EBMLParsingException("Getting tracks read length in the wrong location");
+        }
+        return mTracksLength;
+    }
+
+    /**
+     * Gets the attachments length region
+     * @return the length of the region
+     * @throws IOException
+     */
+    public long getAttachmentsDataLength() throws IOException {
+        findAttachmentsPosition();
+        if (mAttachmentsPosition == 0) {
+            return 0;
+        }
+        mRanAccFile.seek(mAttachmentsPosition);
+        if ((mAttachmentsLength = MasterElement.parseUpToLength(mRanAccFile, Attachments.ID)) == 0) {
+            throw new EBMLParsingException("Getting attachments read length in the wrong location");
+        }
+        return mAttachmentsLength;
+    }
+
+    /**
+     * Gets the cues length region
+     * @return the length of the region
+     * @throws IOException
+     */
+    public long getCuesDataLength() throws IOException {
+        findCuesPosition();
+        mRanAccFile.seek(mCuesPosition);
+        if ((mCuesLength = MasterElement.parseUpToLength(mRanAccFile, Cues.ID)) == 0) {
+            throw new EBMLParsingException("Getting cues read length in the wrong location");
+        }
+        return mCuesLength;
+    }
+
+    /**
+     * Gets the chapters length region
+     * @return the length of the region
+     * @throws IOException
+     */
+    public long getChaptersDataLength() throws IOException {
+        findChaptersPosition();
+        mRanAccFile.seek(mChaptersPosition);
+        if ((mChaptersLength = MasterElement.parseUpToLength(mRanAccFile, Chapters.ID)) == 0) {
+            throw new EBMLParsingException("Getting chapters read length in the wrong location");
+        }
+        return mChaptersLength;
     }
 
     /**
@@ -224,6 +369,10 @@ public class EBMLReader {
     public void readAttachments() throws IOException {
         if (mAttachmentsHeader == null) {
             findAttachmentsPosition();
+            if (mAttachmentsPosition == 0) {
+                Log.v(TAG, "There are no attachments");
+                return;
+            }
 
             mRanAccFile.seek(mAttachmentsPosition);
             mAttachmentsHeader = new MasterElement(Attachments.HEADER);
@@ -239,24 +388,242 @@ public class EBMLReader {
     }
 
     /**
+     * Gets the amount of video cues inside the video file
+     * Use this to get the total amount of cues to parse the subtitles
+     * @return the amount of video cues
+     */
+    public int getCuesCount() {
+        return mCueFrames.size();
+    }
+
+    /**
+     * Get the start address of a cue
+     * @param index position of the cue
+     * @return start address
+     */
+    public long getCueStartAddress(int index) {
+        return mCueFrames.get(index).mStartAddress;
+    }
+
+    /**
+     * Get the end address of a cue
+     * @param index position of the cue
+     * @return end address
+     */
+    public long getCueEndAddress(int index) {
+        return mCueFrames.get(index).mEndAddress;
+    }
+
+    /**
+     * Get the start time of a cue
+     * @param index position of the cue
+     * @return start time
+     */
+    public int getCueTimecode(int index) {
+        return mCueFrames.get(index).mTimecode;
+    }
+
+    /**
+     * Get the next time code of a cue
+     * @param index position of the cue
+     * @return next time code
+     */
+    public int getCueEndTimecode(int index) {
+        return mCueFrames.get(index).mNextTimecode;
+    }
+
+    /**
+     * Gets the subtitle inside the cue entry.
+     * If the video has subtitle information inside the cues, it will read it much faster,
+     * older videos will not so we will have to scan through majority of the file.
+     * This operation is slow and should be done on a background thread.
+     * Once the subtitle is parsed out, it will be placed into a subtitle object then you can
+     * use getSubtitles().get(i).readUnreadSubtitles() to get the read subtitle
+     * On the dev side, you should keep a Set<Integer> to keep track of which cue entries
+     * you have read so you dont need to run this function on the same entry again.
+     * @param index of the cue frame
+     * @return if there are any subtitles parsed
+     * @throws IOException
+     */
+    public boolean readSubtitlesInCueFrame(int index) throws IOException {
+        Cluster.Entry entry = mCueFrames.get(index);
+        if (!entry.mHasParsed) {
+            if (mHasCueSubtitlesPos) {
+                // There should be subtitle entries inside some video entries, read part of the cluster
+                if (entry.mSubEntries != null) {
+                    // This entry has subtitles!
+                    for (Cluster.Entry subEntry : entry.mSubEntries) {
+                        MasterElement clusterEl = new MasterElement(Cluster.ENTRY);
+                        int timecode = subEntry.mTimecode;
+
+                        // Scan till after the id and length to properly get the position of the subtitle track
+                        mRanAccFile.seek(subEntry.mStartAddress);
+                        if (clusterEl.parseOnlyIdAndLength(mRanAccFile) == 0) {
+                            throw new EBMLException("Unable to parse cluster header info");
+                        }
+
+                        // Go directly to the subtitle track data and parse the block
+                        mRanAccFile.skipBytes(subEntry.mRelativePosition);
+                        MasterElement blockGroup = new MasterElement(Cluster.BLOCK_GROUP_NODE);
+                        if (!blockGroup.parse(mRanAccFile)) {
+                            throw new EBMLParsingException("Cannot parse block group");
+                        }
+
+                        // Get the block track number and put it in the correct subtitle track
+                        BlockElement block = blockGroup.getBlockElement(Cluster.BLOCK_ID);
+                        int blockTrackNumber = block.getTrackNumber();
+                        boolean sorted = false;
+                        for (Subtitles sub : mSubtitles) {
+                            if (sub.getTrackNumber() == blockTrackNumber) {
+                                sorted = true;
+                                sub.appendBlock(block, timecode - block.getTimecode(),
+                                        blockGroup.getValueInt(Cluster.BLOCK_DURATION));
+                            }
+                        }
+                        if (!sorted) {
+                            throw new EBMLParsingException("Cannot parse block group for subtitles, is file corrupted?");
+                        }
+                    }
+                    entry.mHasParsed = true;
+                    return true;
+                }
+            } else {
+                // Cues did not tell us any subtitle locations, we need to read the entire cluster
+                boolean parsedAtLeastOneSub = false;
+                mRanAccFile.seek(entry.mStartAddress);
+
+                while (true) {
+                    // Keep parsing till we reach the next cluster position set from Cues
+                    MasterElement clusterEl = new MasterElement(Cluster.ENTRY);
+                    if (!clusterEl.parse(mRanAccFile, mSubtitleTrackNumbers, mClusterBlockReadOnlyEl)) {
+                        // End of clusters
+                        if (entry.mEndAddress != mCuesPosition - 1) {
+                            throw new EBMLParsingException("Unable to parse cluster header info");
+                        }
+                        break;
+                    }
+
+                    // Sort each subtitle entry inside this cluster into its subtitle track
+                    int timecode = 0;
+                    for (ElementBase el : clusterEl.getElements()) {
+                        if (el.getType() == NodeBase.Type.MASTER) {
+                            BlockElement block = ((MasterElement) el).getBlockElement(Cluster.BLOCK_ID);
+                            if (block != null) {
+                                int blockTrackNumber = block.getTrackNumber();
+                                boolean sorted = false;
+                                for (Subtitles sub : mSubtitles) {
+                                    if (sub.getTrackNumber() == blockTrackNumber) {
+                                        sorted = true;
+                                        sub.appendBlock(block, timecode,
+                                                ((MasterElement) el).getValueInt(Cluster.BLOCK_DURATION));
+                                        parsedAtLeastOneSub = true;
+                                    }
+                                }
+                                if (!sorted) {
+                                    throw new EBMLParsingException("Cannot parse block group for subtitles, is file corrupted?");
+                                }
+                            }
+                        } else if (el.getType() == NodeBase.Type.INT) {
+                            timecode = ((IntElement) el).getData();
+                        } else {
+                            throw new EBMLParsingException("Parsing cluster for subtitles gained useless data");
+                        }
+                    }
+
+                    // Once we reach the next cluster position set from Cues, we can end the loop
+                    // The last entry will have an end address right before the cues, so scan till end
+                    if (entry.mEndAddress != mCuesPosition - 1 && mRanAccFile.getFilePointer() >= entry.mEndAddress) {
+                        break;
+                    }
+                }
+                entry.mHasParsed = true;
+                return parsedAtLeastOneSub;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Find the cue entry index within the time provided
+     * Finds the index using binary search
+     * @param time specified to search for the index
+     * @return the index
+     */
+    public int getCueIndexAtTime(int time) {
+        int low = 0;
+        int high = mCueFrames.size() - 1;
+
+        if (time > mCueFrames.get(high).mTimecode) {
+            return high;
+        }
+
+        if (high < 0) {
+            throw new IllegalArgumentException("The array cannot be empty");
+        }
+        if (time > mCueFrames.get(high).mTimecode) {
+            throw new IllegalArgumentException("Input time is above last time");
+        }
+
+        while (low < high) {
+            int mid = (low + high) / 2;
+            if (mCueFrames.get(mid).mTimecode < time) {
+                low = mid+1;
+            } else {
+                high = mid;
+            }
+        }
+        return Math.max(high-1, 0);
+    }
+
+    /**
+     * Find the cue entry index within the address provided
+     * Finds the index using binary search
+     * @param address specified to search for the index
+     * @return the index
+     */
+    public int getCueIndexFromAddress(long address) {
+        int low = 0;
+        int high = mCueFrames.size() - 1;
+
+        if (address > mCueFrames.get(high).mStartAddress) {
+            return high;
+        }
+
+        if (high < 0) {
+            throw new IllegalArgumentException("The array cannot be empty");
+        }
+
+        while (low < high) {
+            int mid = (low + high) / 2;
+            if (mCueFrames.get(mid).mStartAddress < address) {
+                low = mid+1;
+            } else {
+                high = mid;
+            }
+        }
+        return Math.max(high-1, 0);
+    }
+
+
+    /**
      * Read the segment cues
-     * Cues contains a lot of information of clusters for each track (video, audio and subtitles).
+     * Cues contains a few locations for some clusters for video and some mkv files can
+     * also contain information directly to each subtitle entry.
      * This is mainly used to get the locations of clusters for subtitles
-     * You need to run this before readNextSubtitle() and getting subtitle information
      * Performance-wise does pretty quickly but should not be done on the ui-thread
      * @throws IOException
      */
     public void readCues() throws IOException {
         if (mCuesHeader == null) {
-            if (findCuesPosition()) {
+            findCuesPosition();
+            if (mCuesPosition > 0) {
                 mRanAccFile.seek(mCuesPosition);
                 mCuesHeader = new MasterElement(Cues.HEADER);
                 if (!mCuesHeader.parse(mRanAccFile)) {
                     throw new EBMLParsingException("Unable to parse cues properly");
                 }
 
-                mClusterVidEntries = new ArrayDeque<>();
-                mClusterSubEntries = new ArrayDeque<>();
+                mCueFrames = new ArrayList<>();
                 Cluster.Entry currentVidEntry = null;
                 Cluster.Entry currentSubEntry = null;
 
@@ -267,24 +634,34 @@ public class EBMLReader {
                     MasterElement trackMaster = (MasterElement) master.getElement(Cues.TRACK_POSITIONS);
 
                     int trackNumber = trackMaster.getValueInt(Cues.TRACK);
-                    int address = trackMaster.getValueInt(Cues.CLUSTER_POSITION);
+                    long address = trackMaster.getValueLong(Cues.CLUSTER_POSITION);
                     if (address == 0) throw new EBMLParsingException("Cannot parse the address from cues");
                     address += mPositionOffset;
 
-                    // For more details why video and subtitle tracks are recorded, read readNextSubtitle()
-                    if (mClusterSubEntries.isEmpty() && trackNumber == mVideoTrackIndex) {
+                    // Record each entry into a list to relate time with data
+                    if (trackNumber == mVideoTrackIndex) {
                         // Record video entries: Reading cues for cluster positions does not guarantee all addresses!!
                         if (currentVidEntry != null) {
                             // Do not put into list if address is same as previous
                             if (currentVidEntry.mStartAddress == address) {
                                 continue;
                             }
-                            currentVidEntry.mEndAddress = address;
+                            currentVidEntry.mEndAddress = address - 1;
                             currentVidEntry.mNextTimecode = cueTime;
                         }
                         currentVidEntry = new Cluster.Entry(cueTime, address);
-                        mClusterVidEntries.add(currentVidEntry);
+                        mCueFrames.add(currentVidEntry);
                     } else if (mSubtitleTrackNumbers.contains(trackNumber)) {
+                        assert currentVidEntry != null;
+                        if (address != currentVidEntry.mStartAddress) {
+                            // Add a new cue entry here for more fine tune control over subtitles since we didn't specify a cluster entry here before
+                            currentVidEntry.mEndAddress = address - 1;
+                            currentVidEntry.mNextTimecode = cueTime;
+                            currentVidEntry = new Cluster.Entry(cueTime, address);
+                            mCueFrames.add(currentVidEntry);
+                        }
+
+                        mHasCueSubtitlesPos = true;
                         int relativePos = trackMaster.getValueInt(Cues.RELATIVE_POSITION);
                         if (currentSubEntry != null) {
                             // Do not put into list if address and relative address is same as previous
@@ -292,15 +669,18 @@ public class EBMLReader {
                                     && currentSubEntry.mRelativePosition == relativePos) {
                                 continue;
                             }
-                            currentSubEntry.mEndAddress = address;
+                            currentSubEntry.mEndAddress = address - 1;
                             currentSubEntry.mNextTimecode = cueTime;
                         }
                         currentSubEntry = new Cluster.Entry(cueTime, address, relativePos);
-                        mClusterSubEntries.add(currentSubEntry);
+                        currentVidEntry.addSubtitle(currentSubEntry);
                     }
                 }
-                if (!mClusterSubEntries.isEmpty()) {
-                    mClusterVidEntries.clear();
+
+                // Set the last cue entry with the total duration as next and address before cues as end address
+                if (currentVidEntry != null) {
+                    currentVidEntry.mNextTimecode = (int) Math.floor(getDuration());
+                    currentVidEntry.mEndAddress = mCuesPosition - 1;
                 }
             } else {
                 throw new EBMLParsingException("Cannot find cues in file");
@@ -309,172 +689,24 @@ public class EBMLReader {
     }
 
     /**
-     * Change the location to parse subtitles when user seeks in video
-     * Mainly helps to stream subtitles because subtitles may take too long to parse out of the file.
-     * You move the subtitle parsing pointer to sometime later in the file depending on the timecode
-     * of the video.
-     * @param time to move the subtitle iterator, matches seek time in milliseconds
+     * Quickly reads only the header of the cues to find the position of the first cluster entry
+     * which leads you do the video data
+     * @return address for the first video frame (cluster)
+     * @throws IOException
      */
-    public void moveSubtitleIteratorAfterTime(long time) {
-        Iterator<Cluster.Entry> it;
-        if (!mClusterSubEntries.isEmpty()) {
-            it = mClusterSubEntries.iterator();
-        } else if (!mClusterVidEntries.isEmpty()) {
-            it = mClusterVidEntries.iterator();
-        } else {
-            return;
-        }
-
-        int numIterations = 0;
-        int lastTimecode = 0;
-        while (it.hasNext()) {
-            Cluster.Entry entry = it.next();
-            if (lastTimecode <= time && time <= entry.mTimecode) {
-                it = mClusterVidEntries.iterator();
-                for (int i = 0; i < numIterations - 1; i++) {
-                    it.next();
-                }
-                mCurrentClusterEntry = it;
-                return;
-            }
-            numIterations++;
-            lastTimecode = entry.mTimecode;
-        }
-        Log.w(TAG, "Time specified was outside the subtitle time, nothing happens");
+    public long readVideoStartAddressFromCues() throws IOException {
+        getCuesDataLength();
+        MasterElement pointNode = new MasterElement(Cues.POINT_NODE);
+        LongElement el = (LongElement) pointNode.parseElementIdOnce(mRanAccFile, Cues.CLUSTER_POSITION);
+        return el.getData() + mPositionOffset;
     }
 
     /**
-     * Reads the cluster for 2 different algorithms depending if cues has direct location of subtitles,
-     * otherwise we scan through the entire cluster for subtitles (this is obviously slower).
-     * This function will read through cluster until at least one subtitle is found. Which then you
-     * can get the unread subtitle text from the Subtitles class.
-     *
-     * You can get unread subtitles by going using Subtitles.readUnreadSubtitles();
-     *
-     * Algorithm 1: Cues has the subtitle track relative position
-     *      - Use the positions (cluster and relative) that cues specified from readCues()
-     *      - Read the header info (id and length) of the cluster it is in and then seek by relative position
-     *      - Read the Cluster block for information of the subtitle and append to the subtitle with corresponding
-     *        track number
-     *      - Read next subtitles if the timecode is the same
-     *      - End loop when we at least read one subtitle block
-     *
-     * Algorithm 2: No subtitle position was given by cues point
-     *      - Use the cluster position from readCues()
-     *      - Parse the entire cluster and ignore unwanted elements to speed up parsing
-     *      - Parse the next few clusters until the next cluster's address in mClusterVidsPositions
-     *      - Loop through the elements inside cluster
-     *      - First line will always be the timecode while the rest will be subtitle blocks, append them
-     *        in their corresponding subtitle track number
-     *      - End loop when we at least read one subtitle block
-     *
-     * @return if there is still anymore subtitles left
-     * @throws IOException
+     * Get the duration in milliseconds of this video
+     * @return duration in ms
      */
-    public boolean readNextSubtitle() throws IOException {
-        if (!mClusterSubEntries.isEmpty()) {
-            // Algorithm 1: cues gives us the addresses for each subtitle, just read those
-            if (mCurrentClusterEntry == null) {
-                mCurrentClusterEntry = mClusterSubEntries.iterator();
-            }
-            if (!mCurrentClusterEntry.hasNext()) {
-                mCurrentClusterEntry = mClusterSubEntries.iterator();
-            }
-
-            // Subs positions are available in Cues, we can pin point them and get them faster
-            Cluster.Entry entry = mCurrentClusterEntry.next();
-            mCurrentClusterEntry.remove();
-            MasterElement clusterEl = new MasterElement(Cluster.ENTRY);
-            int timecode = entry.mTimecode;
-
-            // Scan till after the id and length to properly get the position of the subtitle track
-            mRanAccFile.seek(entry.mStartAddress);
-            if (clusterEl.parseOnlyIdAndLength(mRanAccFile) == 0) {
-                throw new EBMLException("Unable to parse cluster header info");
-            }
-
-            // Go directly to the subtitle track data and parse the block
-            long address = mRanAccFile.getFilePointer() + entry.mRelativePosition;
-            mRanAccFile.seek(address);
-            MasterElement blockGroup = new MasterElement(Cluster.BLOCK_GROUP_NODE);
-            if (!blockGroup.parse(mRanAccFile)) {
-                throw new EBMLParsingException("Cannot parse block group");
-            }
-
-            // Get the block track number and put it in the correct subtitle track
-            BlockElement block = blockGroup.getBlockElement(Cluster.BLOCK_ID);
-            int blockTrackNumber = block.getTrackNumber();
-            for (Subtitles sub : mSubtitles) {
-                if (sub.getTrackNumber() == blockTrackNumber) {
-                    sub.appendBlock(block, timecode - block.getTimecode(),
-                            blockGroup.getValueInt(Cluster.BLOCK_DURATION));
-                    // We must read all the subtitles with same timecode, will return the number of subs found
-                    return !(mCurrentClusterEntry.hasNext() && entry.mNextTimecode == timecode)
-                            || readNextSubtitle();
-                }
-            }
-            throw new EBMLParsingException("Cannot parse block group for subtitles, is file corrupted?");
-        } else if (!mClusterVidEntries.isEmpty()) {
-            // Algorithm 2: search through each cluster for subtitles
-            if (mClusterBlockReadOnlyEl == null) {
-                mClusterBlockReadOnlyEl = new HashSet<>();
-                mClusterBlockReadOnlyEl.add(Cluster.BLOCK_ID);
-                mClusterBlockReadOnlyEl.add(Cluster.BLOCK_GROUP);
-                mClusterBlockReadOnlyEl.add(Cluster.BLOCK_DURATION);
-                mClusterBlockReadOnlyEl.add(Cluster.TIMECODE);
-            }
-            if (mCurrentClusterEntry == null) {
-                mCurrentClusterEntry = mClusterVidEntries.iterator();
-            }
-            if (!mCurrentClusterEntry.hasNext()) {
-                mCurrentClusterEntry = mClusterVidEntries.iterator();
-            }
-
-            // Seek to the next cluster position
-            boolean parsedAtLeastOneSub = false;
-            Cluster.Entry entry = mCurrentClusterEntry.next();
-            mCurrentClusterEntry.remove();
-            mRanAccFile.seek(entry.mStartAddress);
-            while (true) {
-                // Keep parsing till we reach the next cluster position set from Cues
-                MasterElement clusterEl = new MasterElement(Cluster.ENTRY);
-                if (!clusterEl.parse(mRanAccFile, mSubtitleTrackNumbers, mClusterBlockReadOnlyEl)) {
-                    // End of clusters
-                    return true;
-                }
-
-                // Sort each subtitle entry inside this cluster into its subtitle track
-                int timecode = 0;
-                for (ElementBase el : clusterEl.getElements()) {
-                    if (el.getType() == NodeBase.Type.MASTER) {
-                        BlockElement block = ((MasterElement) el).getBlockElement(Cluster.BLOCK_ID);
-                        if (block != null) {
-                            int blockTrackNumber = block.getTrackNumber();
-                            for (Subtitles sub : mSubtitles) {
-                                if (sub.getTrackNumber() == blockTrackNumber) {
-                                    sub.appendBlock(block, timecode,
-                                            ((MasterElement) el).getValueInt(Cluster.BLOCK_DURATION));
-                                    parsedAtLeastOneSub = true;
-                                }
-                            }
-                        }
-                    } else if (el.getType() == NodeBase.Type.INT) {
-                          timecode = ((IntElement) el).getData();
-                    } else {
-                        throw new EBMLParsingException("Parsing cluster for subtitles gained useless data");
-                    }
-                }
-
-                // Once we reach the next cluster position set from Cues, we can end the loop
-                // The last entry will have an end address of 0, so scan till end
-                if (entry.mEndAddress > 0 && mRanAccFile.getFilePointer() >= entry.mEndAddress) {
-                    break;
-                }
-            }
-            // Read the next sub if didnt find one now
-            return parsedAtLeastOneSub || readNextSubtitle();
-        }
-        return false;
+    public float getDuration() {
+        return mDurationMs;
     }
 
     /**
@@ -505,110 +737,43 @@ public class EBMLReader {
         return mAttachments;
     }
 
-//      TODO only need this if you find a video without clusters
-//    private void findClusterPosition() throws IOException {
-//        if (mClusterPosition != 0) {
-//            return;
-//        }
-//        mClusterPosition = findPositionForSegmentEntry(Cluster.ID);
-//        if (mClusterPosition == 0) {
-//            // There was no cluster located in segment, so we have to find it another way
-//            if (findCuesPosition()) {
-//                // Cues will easily tell us the location of the first cluster
-//                mRanAccFile.seek(mCuesPosition);
-//                mCuesHeader = new MasterElement(Cues.HEADER);
-//                ElementBase el = mCuesHeader.parseElementIdOnce(mRanAccFile, Cues.CLUSTER_POSITION);
-//                if (el == null) {
-//                    throw new EBMLException("Failed to find first cluster location in cues.");
-//                }
-//                mCuesHeader.output();
-//                mClusterPosition = ((IntElement)el).getData() + mPositionOffset;
-//            } else {
-                // No Cues so we have to fallback and scan the file for it
-                // The algorithm consists of scanning areas between major segments
-                // until end of file or the first cluster
-
-                // Get all positions in segment entry after max chapters or tracks
-//                findChaptersPosition();
-//                ArrayList<Long> positions = new ArrayList<Long>();
-//                long startScanPosition = Math.max(mChaptersPosition, mTracksPosition);
-//                for (ElementBase el : mSegmentHeader.getElements()) {
-//                    long pos = ((MasterElement) el).getValueInt(Segment.SEEK_POSITION) + mPositionOffset;
-//                    if (pos >= startScanPosition) {
-//                        positions.add(pos);
-//                    }
-//                }
-//                Collections.sort(positions);
-//                positions.add(mRanAccFile.length());
-//
-//                // Start scanning for the cluster
-//                for (int i = 0; i < positions.size() - 1; i++) {
-//                    mRanAccFile.seek(positions.get(i));
-//
-//                    // Skip 4 bytes for the master id; we guarantee id based on position
-//                    // then skip the entire body to find the data in between
-//                    ElementBase.readId(mRanAccFile);
-//                    int len = ElementBase.readLength(mRanAccFile);
-//                    mRanAccFile.skipBytes(len);
-//
-//                    // Scan the in between segments data for the cluster
-//                    int clusterId[] = { 0x1F, 0x43, 0xB6, 0x75 };
-//                    while(mRanAccFile.getFilePointer() < positions.get(i + 1)) {
-//                        if (mRanAccFile.readByte() == clusterId[0]) {
-//                            if (mRanAccFile.readByte() == clusterId[1]) {
-//                                if (mRanAccFile.readByte() == clusterId[2]) {
-//                                    if (mRanAccFile.readByte() == clusterId[3]) {
-//                                        mClusterPosition = mRanAccFile.getFilePointer() - 4;
-//                                        return;
-//                                    } else {
-//                                        mRanAccFile.seek(mRanAccFile.getFilePointer() - 3);
-//                                    }
-//                                } else {
-//                                    mRanAccFile.seek(mRanAccFile.getFilePointer() - 2);
-//                                }
-//                            } else {
-//                                mRanAccFile.seek(mRanAccFile.getFilePointer() - 1);
-//                            }
-//                        }
-//                    }
-//                }
-//                throw new EBMLParsingException("Cannot find cluster id");
-//            }
-//        }
-//    }
-
-    private void findTracksPosition() throws IOException {
-        if (mTracksPosition == 0) {
-            mTracksPosition = findPositionForSegmentEntry(Tracks.ID);
+    private void findInfoPosition() throws IOException {
+        if (mInfoPosition == 0) {
+            mInfoPosition = findPositionFromSegmentEntry(Info.ID);
         }
     }
 
-    private boolean findCuesPosition() throws IOException {
-        if (mCuesPosition == 0) {
-            mCuesPosition = findPositionForSegmentEntry(Cues.ID);
+    private void findTracksPosition() throws IOException {
+        if (mTracksPosition == 0) {
+            mTracksPosition = findPositionFromSegmentEntry(Tracks.ID);
         }
-        return true;
+    }
+
+    private void findCuesPosition() throws IOException {
+        if (mCuesPosition == 0) {
+            mCuesPosition = findPositionFromSegmentEntry(Cues.ID);
+        }
     }
 
     private void findChaptersPosition() throws IOException {
         if (mChaptersPosition == 0) {
-            mChaptersPosition = findPositionForSegmentEntry(Chapters.ID);
+            mChaptersPosition = findPositionFromSegmentEntry(Chapters.ID);
         }
     }
 
     private void findAttachmentsPosition() throws IOException {
         if (mAttachmentsPosition == 0) {
-            mAttachmentsPosition = findPositionForSegmentEntry(Attachments.ID);
+            mAttachmentsPosition = findPositionFromSegmentEntry(Attachments.ID);
         }
     }
 
-    private int findPositionForSegmentEntry(int id) throws IOException {
+    private long findPositionFromSegmentEntry(int id) throws IOException {
         MasterElement entry = mSegmentHeader.searchForMasterWithIntValue(
                 Segment.SEEK_ID, id);
         if (entry == null) {
             return 0;
         }
-        return (int) (entry.getValueInt(Segment.SEEK_POSITION) + mPositionOffset);
+        return (entry.getValueLong(Segment.SEEK_POSITION) + mPositionOffset);
 
     }
 }

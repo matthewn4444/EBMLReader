@@ -1,28 +1,28 @@
 package com.matthewn4444.ebml.elements;
 
 
-import java.io.IOException;
-import java.io.RandomAccessFile;
-
 import android.util.Log;
 
 import com.matthewn4444.ebml.EBMLParsingException;
-import com.matthewn4444.ebml.node.IntNode;
+import com.matthewn4444.ebml.node.LongNode;
 import com.matthewn4444.ebml.node.NodeBase;
 
-public class IntElement extends ElementBase {
-    private int mData;
+import java.io.IOException;
+import java.io.RandomAccessFile;
 
-    IntElement(IntNode node) {
-        super(NodeBase.Type.INT, node.id());
+public class LongElement extends ElementBase {
+    private long mData;
+
+    LongElement(LongNode node) {
+        super(NodeBase.Type.LONG, node.id());
         mData = node.getDefault();
     }
 
     /**
-     * Get the integer data from this element entry
-     * @return integer data
+     * Get the long data from this element entry
+     * @return long data
      */
-    public int getData() {
+    public long getData() {
         return mData;
     }
 
@@ -40,10 +40,13 @@ public class IntElement extends ElementBase {
             mData = ((raf.readByte() & 0xFF) << 16) | (raf.readShort() & 0xFFFF);
             break;
         case 4:
-            mData = raf.readInt();
+            mData = raf.readInt() & 0x00000000ffffffffL;        // Convert the signed int to unsigned long
+            break;
+        case 8:
+            mData = raf.readLong();
             break;
         default:
-            throw new EBMLParsingException("get int [id= " + hexId() + " @ 0x" +
+            throw new EBMLParsingException("get long [id= " + hexId() + " @ 0x" +
                     Long.toHexString(raf.getFilePointer()) + "] with len = " + len + " is not supported");
         }
         return true;
@@ -52,7 +55,7 @@ public class IntElement extends ElementBase {
     @Override
     public StringBuilder output(int level) {
         StringBuilder sb = super.output(level);
-        Log.v(TAG, sb.toString() + "INT [" + hexId() + "]: " + mData);
+        Log.v(TAG, sb.toString() + "LONG [" + hexId() + "]: " + mData);
         return null;
     }
 }

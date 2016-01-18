@@ -1,6 +1,7 @@
 package com.matthewn4444.ebml;
 
 import com.matthewn4444.ebml.node.IntNode;
+import com.matthewn4444.ebml.node.LongNode;
 import com.matthewn4444.ebml.node.MasterNode;
 
 public final class Segment {
@@ -19,7 +20,7 @@ public final class Segment {
 
         ENTRY.addNode(new IntNode(SEEK));
         ENTRY.addNode(new IntNode(SEEK_ID));
-        ENTRY.addNode(new IntNode(SEEK_POSITION));
+        ENTRY.addNode(new LongNode(SEEK_POSITION));
     }
 
     private Segment() {}
