@@ -604,6 +604,16 @@ public class EBMLReader {
         return Math.max(high-1, 0);
     }
 
+    /**
+     * Query if this cue entry has any subtitles to be parsed. Once you use readSubtitlesInCueFrame
+     * on a cue entry, it will be marked as read regardless if it has any subtitles.
+     * @param index which cue entry
+     * @return if you can parse this entry
+     */
+    public boolean canParseSubtitlesFromCueAt(int index) {
+        Cluster.Entry entry = mCueFrames.get(index);
+        return !entry.mHasParsed && entry.mSubEntries != null && !entry.mSubEntries.isEmpty();
+    }
 
     /**
      * Read the segment cues
