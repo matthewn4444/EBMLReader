@@ -6,8 +6,8 @@ public class SSACaption extends Caption {
     private String mCachedData;
     private String mCachedVTT;
 
-    public SSACaption(BlockElement block, int timecode, int duration) {
-        super(Subtitles.Type.SSA, block, timecode, duration);
+    public SSACaption(BlockElement block, int timecode, int duration, boolean isCompressed) {
+        super(Subtitles.Type.SSA, block, timecode, duration, isCompressed);
     }
 
     @Override

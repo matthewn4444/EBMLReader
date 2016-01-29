@@ -5,8 +5,8 @@ import com.matthewn4444.ebml.elements.BlockElement;
 public class SRTCaption extends Caption {
     private String mCachedData;
 
-    public SRTCaption(BlockElement block, int timecode, int duration) {
-        super(Subtitles.Type.SRT, block, timecode, duration);
+    public SRTCaption(BlockElement block, int timecode, int duration, boolean isCompressed) {
+        super(Subtitles.Type.SRT, block, timecode, duration, isCompressed);
     }
 
     @Override

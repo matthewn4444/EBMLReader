@@ -17,7 +17,7 @@ import java.util.Set;
  * This will contain all the information gained from parsing track data from cluster entries
  */
 public class BlockElement extends ElementBase {
-    private String mData;
+    private byte[] mData;
     private int mTrackNumber;
     private int mTimecode;
     private int mFlag;
@@ -53,10 +53,10 @@ public class BlockElement extends ElementBase {
     }
 
     /**
-     * Get the string of data
+     * Get the bytes of data, could be compressed
      * @return data
      */
-    public String getData() {
+    public byte[] getData() {
         return mData;
     }
 
@@ -91,18 +91,16 @@ public class BlockElement extends ElementBase {
 
         // Copy the text out
         int contentLength = (int)(len - (raf.getFilePointer() - start));
-        byte[] buffer = new byte[contentLength];
-        raf.read(buffer);
-        mData = new String(buffer, "utf8");
+        mData = new byte[contentLength];
+        raf.read(mData);
         return true;
     }
 
     @Override
     public StringBuilder output(int level) {
         StringBuilder sb = super.output(level);
-        String data = mData.length() > 25 ? mData.substring(0, 25) + "..." : mData;
         Log.v(TAG, sb.toString() + "BLK [" + hexId() + "]: Track=" + mTrackNumber + ", TC=" + mTimecode
-                + ", Content='" + data + "'");
+                + ", Content='BINARY/TEXT'");
         return null;
     }
 }

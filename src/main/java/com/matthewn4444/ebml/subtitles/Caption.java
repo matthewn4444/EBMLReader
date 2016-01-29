@@ -2,6 +2,12 @@ package com.matthewn4444.ebml.subtitles;
 
 import com.matthewn4444.ebml.elements.BlockElement;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.util.zip.DataFormatException;
+import java.util.zip.Inflater;
+
 public abstract class Caption {
 
     public static class TimePoint {
@@ -58,24 +64,61 @@ public abstract class Caption {
         }
     }
 
-    private final String mData;
     private final TimePoint mStart;
     private final TimePoint mEnd;
     private final Subtitles.Type mType;
+    private final boolean mIsCompressed;
+    private final Inflater decompressor;
 
-    public Caption(Subtitles.Type type, BlockElement block, int timecode, int duration) {
+    private byte[] mData;
+    private String mContent;
+
+    public Caption(Subtitles.Type type, BlockElement block, int timecode, int duration, boolean isCompressed) {
         mType = type;
+        mIsCompressed = isCompressed;
         mData = block.getData();
         int start = block.getTimecode() + timecode;
         mStart = new TimePoint(start);
         mEnd = new TimePoint(start + duration);
+        decompressor = new Inflater();
     }
 
     public abstract String getFormattedText();
     public abstract String getFormattedVTT();
 
     public String getData() {
-        return mData;
+        if (mContent == null) {
+            try {
+                if (mIsCompressed) {
+                    // Run zlib decompression on these bytes
+                    decompressor.setInput(mData);
+                    ByteArrayOutputStream bos = new ByteArrayOutputStream(mData.length);
+                    try {
+                        byte[] buf = new byte[1024];
+                        while (!decompressor.finished()) {
+                            int count = decompressor.inflate(buf);
+                            bos.write(buf, 0, count);
+                        }
+                        mContent = new String(bos.toByteArray(), "utf8");
+                    } catch (DataFormatException e) {
+                        e.printStackTrace();
+                    } finally {
+                        try {
+                            bos.close();
+                        } catch (IOException ignored) {
+                        }
+                    }
+                } else {
+                    mContent = new String(mData, "utf8");
+                }
+            } catch (UnsupportedEncodingException e) {
+                e.printStackTrace();
+                mContent = "";
+            } finally {
+                mData = null;
+            }
+        }
+        return mContent;
     }
 
     public TimePoint getStartTime() {

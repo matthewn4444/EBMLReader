@@ -351,7 +351,21 @@ public class EBMLReader {
                 if (type == Tracks.Type.VIDEO) {
                     mVideoTrackIndex = master.getValueInt(Tracks.NUMBER);
                 } else if (type == Tracks.Type.SUBTITLE) {
-                    Subtitles subs = Subtitles.CreateSubsFromBlockGroup((MasterElement) el);
+                    MasterElement masterSubTrack = (MasterElement) el;
+
+                    // Check to see if this subtitle element has compression
+                    boolean hasCompression = false;
+                    el = masterSubTrack.getElementFromPath(Tracks.CONTENT_ENCODINGS_ENTRY,
+                            Tracks.CONTENT_ENCODING, Tracks.CONTENT_COMPRESSION);
+                    if (el != null) {
+                        // We have compression in subtitles
+                        if (((MasterElement) el).getElements().size() > 0) {
+                            throw new UnsupportedOperationException("Have not implemented more complex compression for subtitles!");
+                        }
+                        hasCompression = true;
+                    }
+
+                    Subtitles subs = Subtitles.CreateSubsFromBlockGroup(masterSubTrack, hasCompression);
                     assert(subs != null);
                     mSubtitles.add(subs);
                     mSubtitleTrackNumbers.add(subs.getTrackNumber());

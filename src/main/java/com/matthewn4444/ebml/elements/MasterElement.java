@@ -1,11 +1,5 @@
 package com.matthewn4444.ebml.elements;
 
-import java.io.IOException;
-import java.io.RandomAccessFile;
-import java.io.UnsupportedEncodingException;
-import java.util.ArrayList;
-import java.util.Set;
-
 import android.util.Log;
 
 import com.matthewn4444.ebml.EBMLParsingException;
@@ -18,6 +12,12 @@ import com.matthewn4444.ebml.node.MasterNode;
 import com.matthewn4444.ebml.node.NodeBase;
 import com.matthewn4444.ebml.node.StringNode;
 
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
+import java.util.Set;
+
 public class MasterElement extends ElementBase {
 
     // Searching data
@@ -26,6 +26,17 @@ public class MasterElement extends ElementBase {
 
     private final ArrayList<ElementBase> mElements;
     private final MasterNode mSchema;
+
+    protected static ElementBase getElementFromPath(MasterElement master, int index, int... ids) {
+        if (index >= ids.length) {
+            return master;
+        }
+        ElementBase el = master.getElement(ids[index]);
+        if (el != null) {
+            return getElementFromPath((MasterElement) el, index + 1, ids);
+        }
+        return null;
+    }
 
     /**
      * Reads only the id and length of the next element.
@@ -281,6 +292,16 @@ public class MasterElement extends ElementBase {
         return null;
     }
 
+    /**
+     * Pass a path of ids as Integers and it will search down and retrieve the last id element you
+     * are looking for.
+     * @param ids ordered list of ids to recursively look through
+     * @return the element you are looking for or null if not found
+     */
+    public ElementBase getElementFromPath(int... ids) {
+        return getElementFromPath(this, 0, ids);
+    }
+
     public ArrayList<ElementBase> getElements() {
         return mElements;
     }
@@ -329,12 +350,10 @@ public class MasterElement extends ElementBase {
                         if (!el.read(raf, filterTrackNumbers, filterIds)) {
                             return false;
                         }
-                        if (!el.mElements.isEmpty()) {
-                            mElements.add(el);
-                            if (el.mSearchOnceFoundElement != null) {
-                                mSearchOnceFoundElement = el.mSearchOnceFoundElement;
-                                return true;
-                            }
+                        mElements.add(el);
+                        if (el.mSearchOnceFoundElement != null) {
+                            mSearchOnceFoundElement = el.mSearchOnceFoundElement;
+                            return true;
                         }
                         continue;
                     case BYTES:

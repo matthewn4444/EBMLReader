@@ -6,14 +6,14 @@ public class SSASubtitles extends Subtitles {
     private final String mHeaderData;
 
     SSASubtitles(int trackNumber, boolean isEnabled, boolean isDefault,
-            String name, String language, String headerData) {
-        super(Subtitles.Type.SSA, trackNumber, isEnabled, isDefault, name, language);
+            String name, String language, String headerData, boolean isCompressed) {
+        super(Subtitles.Type.SSA, trackNumber, isEnabled, isDefault, name, language, isCompressed);
         mHeaderData = headerData;
     }
 
     @Override
     public void appendBlock(BlockElement block, int timecode, int duration) {
-        appendCaption(new SSACaption(block, timecode, duration));
+        appendCaption(new SSACaption(block, timecode, duration, mIsCompressed));
     }
 
     @Override

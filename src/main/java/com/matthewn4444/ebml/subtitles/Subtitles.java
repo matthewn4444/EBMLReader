@@ -21,6 +21,7 @@ public abstract class Subtitles {
         SSA, SRT
     };
 
+    protected final boolean mIsCompressed;
     protected Type mType;
     protected int mTrackNumber;
     protected String mLanguage;
@@ -38,7 +39,7 @@ public abstract class Subtitles {
      * @return a subtitles object containing all readable data
      * @throws UnsupportedEncodingException
      */
-    static public Subtitles CreateSubsFromBlockGroup(MasterElement blockgroup) throws UnsupportedEncodingException {
+    static public Subtitles CreateSubsFromBlockGroup(MasterElement blockgroup, boolean hasCompression) throws UnsupportedEncodingException {
         if (blockgroup.getValueInt(Tracks.TYPE) == Tracks.Type.SUBTITLE) {
             int trackNumber = blockgroup.getValueInt(Tracks.NUMBER);
             IntElement enableEl = (IntElement) blockgroup.getElement(Tracks.IS_ENABLED);
@@ -50,17 +51,18 @@ public abstract class Subtitles {
             if (blockgroup.getValueString(Tracks.CODEC_ID).equals(SSA_CODEC_ID)) {
                 return new SSASubtitles(trackNumber, isEnabled, isDefault,
                         name, language,
-                        blockgroup.getValueString(Tracks.CODEC_PRIVATE));
+                        blockgroup.getValueString(Tracks.CODEC_PRIVATE), hasCompression);
             } else {
                 return new SRTSubtitles(trackNumber, isEnabled, isDefault,
-                        name, language);
+                        name, language, hasCompression);
             }
         }
         return null;
     }
 
     Subtitles(Type type, int trackNumber, boolean isEnabled, boolean isDefault,
-            String name, String language) {
+            String name, String language, boolean isCompressed) {
+        mIsCompressed = isCompressed;
         mType = type;
         mTrackNumber = trackNumber;
         mLanguage = language != null ? language : "eng";
