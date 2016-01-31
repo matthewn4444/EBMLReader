@@ -478,8 +478,16 @@ public class EBMLReader {
 
                         // Go directly to the subtitle track data and parse the block
                         mRanAccFile.skipBytes(subEntry.mRelativePosition);
+                        long pos = mRanAccFile.getFilePointer();
                         MasterElement blockGroup = new MasterElement(Cluster.BLOCK_GROUP_NODE);
                         if (!blockGroup.parse(mRanAccFile)) {
+                            // Rare case if author used simpleblock instead of block group since
+                            // simple block has no duration, making the subtitle useless, ignore it
+                            mRanAccFile.seek(pos);
+                            int id = ElementBase.readId(mRanAccFile);
+                            if (id == Cluster.SIMPLE_BLOCK) {
+                                continue;
+                            }
                             throw new EBMLParsingException("Cannot parse block group");
                         }
 
