@@ -100,17 +100,18 @@ binary data.
             }
         }
 
-        // Read all the subtitles from the file
-        // If you want you can implement to read x-number of subtitles at a time,
-        // this will read all of it
-        // This will read all the subtitles if there are more than one
+        // Read all the subtitles from the file each from cue index.
+        // Once a cue is parsed, it is cached, so if you read the same cue again,
+        // it will not waste time.
         // Performance-wise, this will take some time because it needs to read
         // most of the file.
-        while (reader.readNextSubtitle());
+        for (int i = 0; i < reader.getCuesCount();i++) {
+            reader.readSubtitlesInCueFrame(i);
+        }
 
         // If you had to seek the video while the subtitles are still extracting,
-        // you can use reader.moveSubtitleIteratorAfterTime(<time>) to extract
-        // at that time location
+        // you can use read a different cue index. Use getCueIndexFromAddress()
+        // to find the nearest floor cue from address you seek to.
 
         // OPTIONAL: we get the subtitle data that was just read
         for (int i = 0; i < reader.getSubtitles().size(); i++) {
