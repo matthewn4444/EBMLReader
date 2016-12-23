@@ -13,7 +13,7 @@ import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.List;
 
-public abstract class Subtitles {
+public abstract class Subtitles extends Tracks {
     public static final String SSA_CODEC_ID = "S_TEXT/ASS";
     public static final String SRT_CODEC_ID = "S_TEXT/UTF8";
 
@@ -23,11 +23,6 @@ public abstract class Subtitles {
 
     protected final boolean mIsCompressed;
     protected Type mType;
-    protected int mTrackNumber;
-    protected String mLanguage;
-    protected String mName;
-    protected boolean mEnabled;
-    protected boolean mDefault;
 
     protected final ArrayList<Caption> mUnreadCaptions;
     protected final ArrayList<Caption> mReadCaptions;
@@ -62,13 +57,9 @@ public abstract class Subtitles {
 
     Subtitles(Type type, int trackNumber, boolean isEnabled, boolean isDefault,
             String name, String language, boolean isCompressed) {
+        super(trackNumber, isEnabled, isDefault, name, language);
         mIsCompressed = isCompressed;
         mType = type;
-        mTrackNumber = trackNumber;
-        mLanguage = language != null ? language : "eng";
-        mName = name;
-        mEnabled = isEnabled;
-        mDefault = isDefault;
         mUnreadCaptions = new ArrayList<>();
         mReadCaptions = new ArrayList<>();
     }
@@ -200,30 +191,6 @@ public abstract class Subtitles {
     }
 
     /**
-     * Get the track number that was assigned
-     * @return the track number
-     */
-    public int getTrackNumber() {
-        return mTrackNumber;
-    }
-
-    /**
-     * Get the language of this subtitle entry
-     * @return the language of this subtitle
-     */
-    public String getLanguage() {
-        return mLanguage;
-    }
-
-    /**
-     * Get the name of this subtitle entry
-     * @return the name of this subtitle
-     */
-    public String getName() {
-        return mName;
-    }
-
-    /**
      * Get a more presentable entry name
      * Format: 'Name: [lang]'
      * @return presentable name
@@ -236,20 +203,9 @@ public abstract class Subtitles {
         return sb.append(" [").append(mLanguage).append(']').toString();
     }
 
-    /**
-     * The subtitle data will specify if this track should be enabled or not
-     * @return if track is enabled or not
-     */
-    public boolean isEnabled() {
-        return mEnabled;
-    }
-
-    /**
-     * The subtitle data will specify if this track is the default track
-     * @return if default track
-     */
-    public boolean isDefault() {
-        return mDefault;
+    @Override
+    public int getTrackType() {
+        return Tracks.Type.SUBTITLE;
     }
 
     protected abstract String getContents();

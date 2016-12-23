@@ -56,6 +56,8 @@ public class EBMLReader {
 
     protected ArrayList<FileAttachment> mAttachments;
 
+    protected ArrayList<AudioTrack> mAudioTracks;
+
     // Keep track of all the video cues for getting subtitles
     protected ArrayList<Cluster.Entry> mCueFrames;
     protected boolean mHasCueSubtitlesPos;
@@ -334,10 +336,9 @@ public class EBMLReader {
                 throw new EBMLParsingException("Unable to parse tracks properly");
             }
 
-            // TODO audio tracks if needed
-
-            // Build the subtitles from track and record valid track numbers
+            // Build the subtitles and audio tracks and record valid track numbers
             mSubtitles = new ArrayList<>();
+            mAudioTracks = new ArrayList<>();
             mSubtitleTrackNumbers.clear();
             for (ElementBase el : mTracksHeader.getElements()) {
                 MasterElement master = (MasterElement) el;
@@ -360,11 +361,14 @@ public class EBMLReader {
                     }
 
                     Subtitles subs = Subtitles.CreateSubsFromBlockGroup(masterSubTrack, hasCompression);
-                    assert(subs != null);
+                    assert (subs != null);
                     mSubtitles.add(subs);
                     mSubtitleTrackNumbers.add(subs.getTrackNumber());
+                } else if (type == Tracks.Type.AUDIO) {
+                    AudioTrack audioTrack = AudioTrack.fromMasterTrackElement((MasterElement) el);
+                    assert (audioTrack != null);
+                    mAudioTracks.add(audioTrack);
                 }
-
             }
         }
     }
@@ -761,6 +765,17 @@ public class EBMLReader {
      */
     public ArrayList<FileAttachment> getAttachments() {
         return mAttachments;
+    }
+
+    /**
+     * Get the audio tracks after parsing the header
+     * You must call the functions in the order:
+     *      readHeader()
+     *      readTracks()
+     * @return a readable list of the audio tracks
+     */
+    public ArrayList<AudioTrack> getAudioTracks() {
+        return mAudioTracks;
     }
 
     private void scanForId(int id, int attempts) throws IOException {

@@ -6,7 +6,7 @@ import com.matthewn4444.ebml.node.LongNode;
 import com.matthewn4444.ebml.node.MasterNode;
 import com.matthewn4444.ebml.node.StringNode;
 
-public class Tracks {
+public abstract class Tracks {
     public static final int ID = 0x1654AE6B;
     public static final int ENTRY =  0xAE;
     public static final int VIDEO_ENTRY = 0xE0;
@@ -163,6 +163,71 @@ public class Tracks {
         CONTENT_ENCYPTION_NODE.addNode(new IntNode(CONTENT_SIG_HASH_ALGO));
     }
 
-    private Tracks() {
+    protected final int mTrackNumber;
+    protected final boolean mEnabled;
+    protected final boolean mDefault;
+    protected final String mName;
+    protected final String mLanguage;
+
+    protected Tracks(int trackNumber, boolean isEnabled, boolean isDefault, String name,
+                     String language) {
+        mTrackNumber = trackNumber;
+        mEnabled = isEnabled;
+        mDefault = isDefault;
+        mName = name;
+        mLanguage = language;
     }
+
+    /**
+     * Get the track number that was assigned
+     * @return the track number
+     */
+    public int getTrackNumber() {
+        return mTrackNumber;
+    }
+
+    /**
+     * The subtitle data will specify if this track should be enabled or not
+     * @return if track is enabled or not
+     */
+    public boolean isEnabled() {
+        return mEnabled;
+    }
+
+    /**
+     * The subtitle data will specify if this track is the default track
+     * @return if default track
+     */
+    public boolean isDefault() {
+        return mDefault;
+    }
+
+    /**
+     * Get the name of this subtitle entry
+     * @return the name of this subtitle
+     */
+    public String getName() {
+        return mName;
+    }
+
+    /**
+     * Get the language of this subtitle entry
+     * @return the language of this subtitle
+     */
+    public String getLanguage() {
+        return mLanguage;
+    }
+
+    /**
+     * Gets the track type. Can be any of the following
+     * 	Tracks.Type.VIDEO
+     * 	Tracks.Type.AUDIO
+     * 	Tracks.Type.COMPLEX
+     * 	Tracks.Type.LOGO
+     * 	Tracks.Type.SUBTITLE
+     * 	Tracks.Type.BUTTONS
+     * 	Tracks.Type.CONTROL
+     * @return track type
+     */
+    public abstract int getTrackType();
 }
