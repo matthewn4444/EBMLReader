@@ -232,18 +232,12 @@ public class EBMLReader {
             throw new EBMLParsingException("Segment does not follow the EBML header, is this a valid mkv?");
         }
 
-        // Skip the segment size of file, not sure how to handle this
-        long anchor = mRanAccFile.getFilePointer();
-        if (mRanAccFile.readByte() == 0x01) {
-            mRanAccFile.skipBytes(7);
-        } else {
-            mRanAccFile.seek(anchor);
-        }
+        // Detect when we get to the seek-head
+        scanForId(Segment.SEEK_HEAD, 10);
 
         // Parse the segment information
-        mPositionOffset = mRanAccFile.getFilePointer();
         if (!mSegmentHeader.parse(mRanAccFile)) {
-            throw new EBMLParsingException("Unable to parse segment properly");
+            throw new EBMLParsingException("Unable to parse segment seek header properly");
         }
 
         // Parse the info segment
@@ -767,6 +761,27 @@ public class EBMLReader {
      */
     public ArrayList<FileAttachment> getAttachments() {
         return mAttachments;
+    }
+
+    private void scanForId(int id, int attempts) throws IOException {
+        int b1 = (id >> 24) & 0xFF;
+        int b2 = (id >> 16) & 0xFF;
+        int b3 = (id >> 8) & 0xFF;
+        int b4 = id & 0xFF;
+
+        while (attempts > 0) {
+            if ((mRanAccFile.readByte() & 0xFF) == b1) {
+                if ((mRanAccFile.readByte() & 0xFF) == b2 && (mRanAccFile.readByte() & 0xFF) == b3
+                        && (mRanAccFile.readByte() & 0xFF) == b4) {
+                    mRanAccFile.seek(mRanAccFile.getFilePointer() - 4);
+                    mPositionOffset = mRanAccFile.getFilePointer();
+                    return;
+                }
+                mRanAccFile.seek(mRanAccFile.getFilePointer() - 1);
+            }
+            attempts--;
+        }
+        throw new EBMLException("Unable to find segment seek header properly");
     }
 
     private void findInfoPosition() throws IOException {
