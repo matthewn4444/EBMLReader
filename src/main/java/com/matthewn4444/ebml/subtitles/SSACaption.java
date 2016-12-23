@@ -26,8 +26,7 @@ public class SSACaption extends Caption {
                     sb.append(',');
                     formatTimePoint(getEndTime(), sb);
                     sb.append(',')
-                        .append(text.substring(start2 + 1))
-                        .append('\n');
+                        .append(text.substring(start2 + 1));
                 } else {
                     throw new SSAParsingException("Subtitle entry sbc not formatted correctly for SSA");
                 }
