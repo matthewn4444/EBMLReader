@@ -13,11 +13,10 @@ import java.io.RandomAccessFile;
  * You can access the data later if you need it
  */
 public class ByteElement extends ElementBase {
-    private long mPosition;
-    private long mLength;
+    private long mDataPosition;
 
-    ByteElement(ByteNode node) {
-        super(NodeBase.Type.BYTES, node.id());
+    ByteElement(ByteNode node, long position) {
+        super(NodeBase.Type.BYTES, node.id(), position);
     }
 
     /**
@@ -28,8 +27,8 @@ public class ByteElement extends ElementBase {
      */
     public byte[] getData(RandomAccessFile raf) throws IOException {
         long oldPointer = raf.getFilePointer();
-        raf.seek(mPosition);
-        byte[] buffer = new byte[(int) mLength];
+        raf.seek(mDataPosition);
+        byte[] buffer = new byte[(int) mInnerLength];
         raf.read(buffer);
         raf.seek(oldPointer);
         return buffer;
@@ -40,7 +39,7 @@ public class ByteElement extends ElementBase {
      * @return position
      */
     public long getPosition() {
-        return mPosition;
+        return mDataPosition;
     }
 
     /**
@@ -48,21 +47,22 @@ public class ByteElement extends ElementBase {
      * @return data length of content
      */
     public long getLength() {
-        return mLength;
+        return mInnerLength;
     }
 
     @Override
-    public boolean read(RandomAccessFile raf) throws IOException {
-        mLength = readLength(raf);
-        mPosition = raf.getFilePointer();
-        raf.seek(mLength + mPosition);
+    boolean read(RandomAccessFile raf) throws IOException {
+        super.read(raf);
+
+        mDataPosition = raf.getFilePointer();
+        raf.seek(mInnerLength + mDataPosition);
         return true;
     }
 
     @Override
     public StringBuilder output(int level) {
         StringBuilder sb = super.output(level);
-        String data = "Binary(@" + Integer.toHexString((int) mPosition) + " len=" + mLength + ")";
+        String data = "Binary(@" + Integer.toHexString((int) mDataPosition) + " len=" + mInnerLength + ")";
         Log.v(TAG, sb.toString() + "BYTE [" + hexId() + "]: '" + data + "'");
         return null;
     }

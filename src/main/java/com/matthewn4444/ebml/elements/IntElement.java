@@ -1,20 +1,20 @@
 package com.matthewn4444.ebml.elements;
 
 
-import java.io.IOException;
-import java.io.RandomAccessFile;
-
 import android.util.Log;
 
 import com.matthewn4444.ebml.EBMLParsingException;
 import com.matthewn4444.ebml.node.IntNode;
 import com.matthewn4444.ebml.node.NodeBase;
 
+import java.io.IOException;
+import java.io.RandomAccessFile;
+
 public class IntElement extends ElementBase {
     private int mData;
 
-    IntElement(IntNode node) {
-        super(NodeBase.Type.INT, node.id());
+    IntElement(IntNode node, long position) {
+        super(NodeBase.Type.INT, node.id(), position);
         mData = node.getDefault();
     }
 
@@ -27,9 +27,10 @@ public class IntElement extends ElementBase {
     }
 
     @Override
-    public boolean read(RandomAccessFile raf) throws IOException {
-        int len = readLength(raf);
-        switch (len) {
+    boolean read(RandomAccessFile raf) throws IOException {
+        super.read(raf);
+
+        switch ((int)mInnerLength) {
         case 1:
             mData = raf.readByte() & 0xFF;
             break;
@@ -44,7 +45,7 @@ public class IntElement extends ElementBase {
             break;
         default:
             throw new EBMLParsingException("get int [id= " + hexId() + " @ 0x" +
-                    Long.toHexString(raf.getFilePointer()) + "] with len = " + len + " is not supported");
+                    Long.toHexString(raf.getFilePointer()) + "] with len = " + mInnerLength + " is not supported");
         }
         return true;
     }

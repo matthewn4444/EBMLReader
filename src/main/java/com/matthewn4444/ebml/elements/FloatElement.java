@@ -1,20 +1,20 @@
 package com.matthewn4444.ebml.elements;
 
 
-import java.io.IOException;
-import java.io.RandomAccessFile;
-
 import android.util.Log;
 
 import com.matthewn4444.ebml.EBMLParsingException;
 import com.matthewn4444.ebml.node.FloatNode;
 import com.matthewn4444.ebml.node.NodeBase;
 
+import java.io.IOException;
+import java.io.RandomAccessFile;
+
 public class FloatElement extends ElementBase {
     private float mData;
 
-    FloatElement(FloatNode nextNode) {
-        super(NodeBase.Type.FLOAT, nextNode.id());
+    FloatElement(FloatNode nextNode, long position) {
+        super(NodeBase.Type.FLOAT, nextNode.id(), position);
         mData = nextNode.getDefault();
     }
 
@@ -27,15 +27,16 @@ public class FloatElement extends ElementBase {
     }
 
     @Override
-    public boolean read(RandomAccessFile raf) throws IOException {
-        int len = readLength(raf);
-        switch (len) {
+    boolean read(RandomAccessFile raf) throws IOException {
+        super.read(raf);
+
+        switch ((int) mInnerLength) {
         case 4:
             mData = raf.readFloat();
             break;
         default:
             throw new EBMLParsingException("get float [id= " + hexId() + " @ 0x" +
-                    Long.toHexString(raf.getFilePointer()) + "] with len = " + len + " is not supported");
+                    Long.toHexString(raf.getFilePointer()) + "] with len = " + mInnerLength + " is not supported");
         }
         return true;
     }

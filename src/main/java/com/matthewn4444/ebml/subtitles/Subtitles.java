@@ -44,20 +44,21 @@ public abstract class Subtitles extends Tracks {
             String name = blockgroup.getValueString(Tracks.NAME);
             String language = blockgroup.getValueString(Tracks.LANGUAGE);
             if (blockgroup.getValueString(Tracks.CODEC_ID).equals(SSA_CODEC_ID)) {
-                return new SSASubtitles(trackNumber, isEnabled, isDefault,
-                        name, language,
+                return new SSASubtitles(trackNumber, blockgroup.getFilePosition(),
+                        blockgroup.getFileLength(), isEnabled, isDefault, name, language,
                         blockgroup.getValueString(Tracks.CODEC_PRIVATE), hasCompression);
             } else {
-                return new SRTSubtitles(trackNumber, isEnabled, isDefault,
-                        name, language, hasCompression);
+                return new SRTSubtitles(trackNumber, blockgroup.getFilePosition(),
+                        blockgroup.getFileLength(), isEnabled, isDefault, name, language,
+                        hasCompression);
             }
         }
         return null;
     }
 
-    Subtitles(Type type, int trackNumber, boolean isEnabled, boolean isDefault,
-            String name, String language, boolean isCompressed) {
-        super(trackNumber, isEnabled, isDefault, name, language);
+    Subtitles(Type type, int trackNumber, long position, long size, boolean isEnabled,
+              boolean isDefault, String name, String language, boolean isCompressed) {
+        super(trackNumber, position, size, isEnabled, isDefault, name, language);
         mIsCompressed = isCompressed;
         mType = type;
         mUnreadCaptions = new ArrayList<>();

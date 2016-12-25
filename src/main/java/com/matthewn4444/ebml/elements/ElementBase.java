@@ -1,16 +1,20 @@
 package com.matthewn4444.ebml.elements;
 
-import com.matthewn4444.ebml.EBMLParsingException;
-import com.matthewn4444.ebml.node.NodeBase;
-
 import java.io.IOException;
 import java.io.RandomAccessFile;
+
+import com.matthewn4444.ebml.EBMLParsingException;
+import com.matthewn4444.ebml.node.NodeBase;
 
 public abstract class ElementBase {
     protected static final String TAG = "EBMLParsing";
 
-    protected NodeBase.Type mType;
-    protected int mId;
+    protected final NodeBase.Type mType;
+    protected final int mId;
+    protected final long mPosition;
+
+    protected long mLength;
+    protected long mInnerLength;
 
     /**
      * Reads the id of EBML format of 1-4 bytes
@@ -30,7 +34,7 @@ public abstract class ElementBase {
      * @return the length of following data
      * @throws IOException
      */
-    public static int readLength(RandomAccessFile raf) throws IOException {
+    static int readLength(RandomAccessFile raf) throws IOException {
         return readBytes(raf, true);
     }
 
@@ -71,9 +75,10 @@ public abstract class ElementBase {
         }
     }
 
-    ElementBase(NodeBase.Type type, int id) {
+    ElementBase(NodeBase.Type type, int id, long position) {
         mType = type;
         mId = id;
+        mPosition = position;
     }
 
     /**
@@ -82,7 +87,12 @@ public abstract class ElementBase {
      * @return if successful
      * @throws IOException
      */
-    public abstract boolean read(RandomAccessFile raf) throws IOException;
+    boolean read(RandomAccessFile raf) throws IOException {
+        long pos = raf.getFilePointer();
+        mInnerLength = readLength(raf);
+        mLength = raf.getFilePointer() - mPosition + mInnerLength;
+        return true;
+    }
 
     public StringBuilder output(int level) {
         StringBuilder sb = new StringBuilder();
@@ -109,6 +119,23 @@ public abstract class ElementBase {
      */
     public int id() {
         return mId;
+    }
+
+    /**
+     * Get the file position of the element
+     * @return position in file
+     */
+    public long getFilePosition() {
+        return mPosition;
+    }
+
+    /**
+     * Get the file size of the element
+     * @param raf file stream
+     * @return size in file
+     */
+    public long getFileLength() {
+        return mLength;
     }
 
     /**

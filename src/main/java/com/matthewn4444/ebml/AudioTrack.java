@@ -49,13 +49,13 @@ public class AudioTrack extends Tracks {
 
         MasterElement audioEl = (MasterElement) el.getElement(Tracks.AUDIO_ENTRY);
         int numChannels = audioEl.getValueInt(Tracks.CHANNELS);
-        return new AudioTrack(Type.fromString(codec), trackNum, isEnabled, isDefault, name,
-                language, numChannels);
+        return new AudioTrack(Type.fromString(codec), trackNum, el.getFilePosition(),
+                el.getFileLength(), isEnabled, isDefault, name, language, numChannels);
     }
 
-    AudioTrack(Type type, int trackNumber, boolean isEnabled, boolean isDefault,
-               String name, String language, int channels) {
-        super(trackNumber, isEnabled, isDefault, name, language);
+    AudioTrack(Type type, int trackNumber, long position, long length, boolean isEnabled,
+               boolean isDefault, String name, String language, int channels) {
+        super(trackNumber, position, length, isEnabled, isDefault, name, language);
         mType = type;
         mChannels = channels;
     }

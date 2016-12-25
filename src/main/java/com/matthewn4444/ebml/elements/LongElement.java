@@ -13,8 +13,8 @@ import java.io.RandomAccessFile;
 public class LongElement extends ElementBase {
     private long mData;
 
-    LongElement(LongNode node) {
-        super(NodeBase.Type.LONG, node.id());
+    LongElement(LongNode node, long position) {
+        super(NodeBase.Type.LONG, node.id(), position);
         mData = node.getDefault();
     }
 
@@ -28,8 +28,9 @@ public class LongElement extends ElementBase {
 
     @Override
     public boolean read(RandomAccessFile raf) throws IOException {
-        int len = readLength(raf);
-        switch (len) {
+        super.read(raf);
+
+        switch ((int) mInnerLength) {
         case 1:
             mData = raf.readByte() & 0xFF;
             break;
@@ -50,7 +51,7 @@ public class LongElement extends ElementBase {
             break;
         default:
             throw new EBMLParsingException("get long [id= " + hexId() + " @ 0x" +
-                    Long.toHexString(raf.getFilePointer()) + "] with len = " + len + " is not supported");
+                    Long.toHexString(raf.getFilePointer()) + "] with len = " + mInnerLength + " is not supported");
         }
         return true;
     }

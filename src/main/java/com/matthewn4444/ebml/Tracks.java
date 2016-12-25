@@ -169,9 +169,14 @@ public abstract class Tracks {
     protected final String mName;
     protected final String mLanguage;
 
-    protected Tracks(int trackNumber, boolean isEnabled, boolean isDefault, String name,
-                     String language) {
+    protected final long mPosition;
+    protected final long mLength;
+
+    protected Tracks(int trackNumber, long position, long length, boolean isEnabled,
+                     boolean isDefault, String name, String language) {
         mTrackNumber = trackNumber;
+        mPosition = position;
+        mLength = length;
         mEnabled = isEnabled;
         mDefault = isDefault;
         mName = name;
@@ -184,6 +189,22 @@ public abstract class Tracks {
      */
     public int getTrackNumber() {
         return mTrackNumber;
+    }
+
+    /**
+     * Gets the file offset for this track
+     * @return position offset in the file
+     */
+    public long getDataPosition() {
+        return mPosition;
+    }
+
+    /**
+     * Gets the size of this track in the file
+     * @return size of this track in the file
+     */
+    public long getDataLength() {
+        return mLength;
     }
 
     /**

@@ -4,9 +4,10 @@ import com.matthewn4444.ebml.elements.BlockElement;
 
 public class SRTSubtitles extends Subtitles {
 
-    SRTSubtitles(int trackNumber, boolean isEnabled,
+    SRTSubtitles(int trackNumber, long position, long size, boolean isEnabled,
             boolean isDefault, String name, String language, boolean isCompressed) {
-        super(Subtitles.Type.SRT, trackNumber, isEnabled, isDefault, name, language, isCompressed);
+        super(Subtitles.Type.SRT, trackNumber, position, size, isEnabled, isDefault, name,
+                language, isCompressed);
     }
 
     @Override

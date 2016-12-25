@@ -2,6 +2,7 @@ package com.matthewn4444.ebml.elements;
 
 import android.util.Log;
 
+import com.matthewn4444.ebml.EBMLException;
 import com.matthewn4444.ebml.node.NodeBase;
 import com.matthewn4444.ebml.node.StringNode;
 
@@ -12,8 +13,8 @@ import java.io.UnsupportedEncodingException;
 public class StringElement extends ElementBase {
     private String mData;
 
-    StringElement(StringNode node) throws UnsupportedEncodingException {
-        super(NodeBase.Type.STRING, node.id());
+    StringElement(StringNode node, long position) throws UnsupportedEncodingException {
+        super(NodeBase.Type.STRING, node.id(), position);
         if (node.getDefault() != null) {
             mData = node.getDefault();
         }
@@ -28,9 +29,14 @@ public class StringElement extends ElementBase {
     }
 
     @Override
-    public boolean read(RandomAccessFile raf) throws IOException {
-        int contentLength = readLength(raf);
-        byte[] buffer = new byte[contentLength];
+    boolean read(RandomAccessFile raf) throws IOException {
+        super.read(raf);
+
+        int size = (int) mInnerLength;
+        if (size != mInnerLength) {
+            throw new EBMLException("Cannot use length as buffer because it is too long!");
+        }
+        byte[] buffer = new byte[(int) mInnerLength];
         raf.read(buffer);
         mData = new String(buffer, "utf8");
         return true;

@@ -5,9 +5,10 @@ import com.matthewn4444.ebml.elements.BlockElement;
 public class SSASubtitles extends Subtitles {
     private final String mHeaderData;
 
-    SSASubtitles(int trackNumber, boolean isEnabled, boolean isDefault,
+    SSASubtitles(int trackNumber, long position, long size, boolean isEnabled, boolean isDefault,
             String name, String language, String headerData, boolean isCompressed) {
-        super(Subtitles.Type.SSA, trackNumber, isEnabled, isDefault, name, language, isCompressed);
+        super(Subtitles.Type.SSA, trackNumber, position, size, isEnabled, isDefault, name,
+                language, isCompressed);
         mHeaderData = headerData;
     }
 

@@ -45,8 +45,8 @@ public class BlockElement extends ElementBase {
         return false;
     }
 
-    BlockElement(BlockNode node) {
-        super(NodeBase.Type.BLOCK, node.id());
+    BlockElement(BlockNode node, long position) {
+        super(NodeBase.Type.BLOCK, node.id(), position);
         mTrackNumber = 0;
         mTimecode = 0;
         mFlag = 0;
@@ -77,10 +77,11 @@ public class BlockElement extends ElementBase {
     }
 
     @Override
-    public boolean read(RandomAccessFile raf) throws IOException {
+    boolean read(RandomAccessFile raf) throws IOException {
+        super.read(raf);
+
         // Read documentation to understand what this does
         // http://www.matroska.org/technical/specs/index.html#block_structure
-        long len = readLength(raf);
         long start = raf.getFilePointer();
         mTrackNumber = readLength(raf);
         mTimecode = raf.readShort();
@@ -90,7 +91,7 @@ public class BlockElement extends ElementBase {
         }
 
         // Copy the text out
-        int contentLength = (int)(len - (raf.getFilePointer() - start));
+        int contentLength = (int)(mInnerLength - (raf.getFilePointer() - start));
         mData = new byte[contentLength];
         raf.read(mData);
         return true;

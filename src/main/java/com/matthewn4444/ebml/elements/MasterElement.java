@@ -55,8 +55,8 @@ public class MasterElement extends ElementBase {
         return 0;
     }
 
-    public MasterElement(MasterNode node) {
-        super(NodeBase.Type.MASTER, node.id());
+    public MasterElement(MasterNode node, long position) {
+        super(NodeBase.Type.MASTER, node.id(), position);
         mSchema = node;
         mElements = new ArrayList<ElementBase>();
     }
@@ -92,23 +92,26 @@ public class MasterElement extends ElementBase {
 
     public boolean parse(RandomAccessFile raf, Set<Integer> filterTrackNumbers,
             Set<Integer> filterIds) throws IOException {
-        int len = parseOnlyIdAndLength(raf);
-        if (len > 0) {
-            return readSection(raf, len, filterTrackNumbers, filterIds);
+        long pos = raf.getFilePointer();
+        int elementId = readId(raf);
+        if (elementId == mId) {
+            mInnerLength = readLength(raf);
+            mLength = raf.getFilePointer() - pos + mInnerLength;
+            return readSection(raf, mInnerLength, filterTrackNumbers, filterIds);
         }
         return false;
     }
 
     @Override
-    public boolean read(RandomAccessFile raf) throws IOException {
-        int len = readLength(raf);
-        return readSection(raf, len, null, null);
+    boolean read(RandomAccessFile raf) throws IOException {
+        super.read(raf);
+        return readSection(raf, mInnerLength, null, null);
     }
 
-    public boolean read(RandomAccessFile raf, Set<Integer> filterTrackNumbers,
+    boolean read(RandomAccessFile raf, Set<Integer> filterTrackNumbers,
             Set<Integer> filterIds) throws IOException {
-        int len = readLength(raf);
-        return readSection(raf, len, filterTrackNumbers, filterIds);
+        super.read(raf);
+        return readSection(raf, mInnerLength, filterTrackNumbers, filterIds);
     }
 
     public MasterElement searchForMasterWithIntValue(int elementId,
@@ -306,12 +309,13 @@ public class MasterElement extends ElementBase {
         return mElements;
     }
 
-    protected boolean readSection(RandomAccessFile raf, int len,
+    protected boolean readSection(RandomAccessFile raf, long len,
             Set<Integer> filterTrackNumbers, Set<Integer> filterIds)
             throws IOException {
         mSearchOnceFoundElement = null;
         long upToLimit = raf.getFilePointer() + len;
         while (raf.getFilePointer() < upToLimit) {
+            long position = raf.getFilePointer();
             int id = readId(raf);
             // Lookup the id and parse its block
             if (mSchema.getLookup().containsKey(id)) {
@@ -322,13 +326,13 @@ public class MasterElement extends ElementBase {
                     ElementBase element;
                     switch (nextNode.getType()) {
                     case INT:
-                        element = new IntElement((IntNode) nextNode);
+                        element = new IntElement((IntNode) nextNode, position);
                         break;
                     case LONG:
-                        element = new LongElement((LongNode) nextNode);
+                        element = new LongElement((LongNode) nextNode, position);
                         break;
                     case STRING:
-                        element = new StringElement((StringNode) nextNode);
+                        element = new StringElement((StringNode) nextNode, position);
                         break;
                     case BLOCK:
                         if (filterTrackNumbers != null) {
@@ -339,12 +343,12 @@ public class MasterElement extends ElementBase {
                                 continue;
                             }
                         }
-                        element = new BlockElement((BlockNode) nextNode);
+                        element = new BlockElement((BlockNode) nextNode, position);
                         break;
                     case MASTER:
                         // Parse master differently
                         MasterElement el = new MasterElement(
-                                (MasterNode) nextNode);
+                                (MasterNode) nextNode, position);
                         el.mSearchOnceId = mSearchOnceId;
 
                         if (!el.read(raf, filterTrackNumbers, filterIds)) {
@@ -357,10 +361,10 @@ public class MasterElement extends ElementBase {
                         }
                         continue;
                     case BYTES:
-                        element = new ByteElement((ByteNode) nextNode);
+                        element = new ByteElement((ByteNode) nextNode, position);
                         break;
                     case FLOAT:
-                        element = new FloatElement((FloatNode) nextNode);
+                        element = new FloatElement((FloatNode) nextNode, position);
                         break;
                     default:
                         throw new EBMLParsingException(
