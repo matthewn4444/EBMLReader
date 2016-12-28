@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 public class EBMLReader {
@@ -40,10 +41,10 @@ public class EBMLReader {
     private static final Object InitLock = new Object();
 
     protected final RandomAccessFile mRanAccFile;
+    protected final List<MasterElement> mSegmentHeaders = new ArrayList<>();
     private boolean mIsOpened;
 
     protected MasterElement mEmblHeader;
-    protected MasterElement mSegmentHeader;
     protected MasterElement mInfoHeader;
     protected MasterElement mCuesHeader;
     protected MasterElement mTracksHeader;
@@ -149,7 +150,7 @@ public class EBMLReader {
      * @return cues offset
      */
     public long getCuesPosition() {
-        if (mSegmentHeader != null) {
+        if (!mSegmentHeaders.isEmpty()) {
             try {
                 findCuesPosition();
             } catch (IOException e) {
@@ -164,7 +165,7 @@ public class EBMLReader {
      * @return chapters offset
      */
     public long getChaptersPosition() {
-        if (mSegmentHeader != null) {
+        if (!mSegmentHeaders.isEmpty()) {
             try {
                 findChaptersPosition();
             } catch (IOException e) {
@@ -179,7 +180,7 @@ public class EBMLReader {
      * @return tracks offset
      */
     public long getTracksPosition() {
-        if (mSegmentHeader != null) {
+        if (!mSegmentHeaders.isEmpty()) {
             try {
                 findTracksPosition();
             } catch (IOException e) {
@@ -194,7 +195,7 @@ public class EBMLReader {
      * @return attachments offset
      */
     public long getAttachmentsPosition() {
-        if (mSegmentHeader != null) {
+        if (!mSegmentHeaders.isEmpty()) {
             try {
                 findAttachmentsPosition();
             } catch (IOException e) {
@@ -218,6 +219,7 @@ public class EBMLReader {
         }
 
         init();
+        mSegmentHeaders.clear();
         mEmblHeader = new MasterElement(EBML_ROOT, 0);
         mCuesPosition = 0;
         mChaptersPosition = 0;
@@ -237,9 +239,19 @@ public class EBMLReader {
         scanForId(Segment.SEEK_HEAD, 10);
 
         // Parse the segment information
-        mSegmentHeader = new MasterElement(Segment.HEADER, mRanAccFile.getFilePointer());
-        if (!mSegmentHeader.parse(mRanAccFile)) {
+        mSegmentHeaders.add(new MasterElement(Segment.HEADER, mRanAccFile.getFilePointer()));
+        if (!mSegmentHeaders.get(0).parse(mRanAccFile)) {
             throw new EBMLParsingException("Unable to parse segment seek header properly");
+        }
+
+        // Handle cases for segment info at the bottom of the file
+        long seekHeaderPosition = findPositionFromSegmentEntry(Segment.SEEK_HEAD);
+        if (seekHeaderPosition != 0) {
+            mRanAccFile.seek(seekHeaderPosition);
+            mSegmentHeaders.add(new MasterElement(Segment.HEADER, seekHeaderPosition));
+            if (!mSegmentHeaders.get(1).parse(mRanAccFile)) {
+                throw new EBMLParsingException("Unable to parse segment seek header properly again");
+            }
         }
 
         // Parse the info segment
@@ -830,12 +842,13 @@ public class EBMLReader {
     }
 
     private long findPositionFromSegmentEntry(int id) throws IOException {
-        MasterElement entry = mSegmentHeader.searchForMasterWithIntValue(
-                Segment.SEEK_ID, id);
-        if (entry == null) {
-            return 0;
+        for (MasterElement segmentHeader : mSegmentHeaders) {
+            MasterElement entry = segmentHeader.searchForMasterWithIntValue(
+                    Segment.SEEK_ID, id);
+            if (entry != null) {
+                return (entry.getValueLong(Segment.SEEK_POSITION) + mPositionOffset);
+            }
         }
-        return (entry.getValueLong(Segment.SEEK_POSITION) + mPositionOffset);
-
+        return 0;
     }
 }
