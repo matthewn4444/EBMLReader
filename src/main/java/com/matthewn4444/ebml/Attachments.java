@@ -1,15 +1,15 @@
 package com.matthewn4444.ebml;
 
-import java.io.IOException;
-import java.io.RandomAccessFile;
-import java.io.UnsupportedEncodingException;
-
 import com.matthewn4444.ebml.elements.ByteElement;
 import com.matthewn4444.ebml.elements.MasterElement;
 import com.matthewn4444.ebml.node.ByteNode;
 import com.matthewn4444.ebml.node.LongNode;
 import com.matthewn4444.ebml.node.MasterNode;
 import com.matthewn4444.ebml.node.StringNode;
+
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.io.UnsupportedEncodingException;
 
 public class Attachments {
     public static final int ID = 0x1941A469;
@@ -84,12 +84,14 @@ public class Attachments {
          * @throws IOException
          */
         public byte[] getData() throws IOException {
-            long oldPointer = mRaf.getFilePointer();
-            mRaf.seek(mDataPosition);
-            byte[] buffer = new byte[(int) mDataLength];
-            mRaf.read(buffer);
-            mRaf.seek(oldPointer);
-            return buffer;
+            synchronized (mRaf) {
+                long oldPointer = mRaf.getFilePointer();
+                mRaf.seek(mDataPosition);
+                byte[] buffer = new byte[(int) mDataLength];
+                mRaf.read(buffer);
+                mRaf.seek(oldPointer);
+                return buffer;
+            }
         }
     }
 }

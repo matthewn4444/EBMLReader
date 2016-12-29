@@ -26,12 +26,14 @@ public class ByteElement extends ElementBase {
      * @throws IOException
      */
     public byte[] getData(RandomAccessFile raf) throws IOException {
-        long oldPointer = raf.getFilePointer();
-        raf.seek(mDataPosition);
-        byte[] buffer = new byte[(int) mInnerLength];
-        raf.read(buffer);
-        raf.seek(oldPointer);
-        return buffer;
+        synchronized (raf) {
+            long oldPointer = raf.getFilePointer();
+            raf.seek(mDataPosition);
+            byte[] buffer = new byte[(int) mInnerLength];
+            raf.read(buffer);
+            raf.seek(oldPointer);
+            return buffer;
+        }
     }
 
     /**

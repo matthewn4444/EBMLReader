@@ -225,32 +225,36 @@ public class EBMLReader {
         mChaptersPosition = 0;
 
         // Parse the header content
-        mRanAccFile.seek(0);
-        if (!mEmblHeader.parse(mRanAccFile)) {
-            return false;
-        }
+        synchronized (mRanAccFile) {
+            mRanAccFile.seek(0);
+            if (!mEmblHeader.parse(mRanAccFile)) {
+                return false;
+            }
 
-        // See if segment is next
-        if (Segment.ID != mRanAccFile.readInt()) {
-            throw new EBMLParsingException("Segment does not follow the EBML header, is this a valid mkv?");
-        }
+            // See if segment is next
+            if (Segment.ID != mRanAccFile.readInt()) {
+                throw new EBMLParsingException("Segment does not follow the EBML header, is this a valid mkv?");
+            }
 
-        // Detect when we get to the seek-head
-        scanForId(Segment.SEEK_HEAD, 10);
+            // Detect when we get to the seek-head
+            scanForId(Segment.SEEK_HEAD, 10);
 
-        // Parse the segment information
-        mSegmentHeaders.add(new MasterElement(Segment.HEADER, mRanAccFile.getFilePointer()));
-        if (!mSegmentHeaders.get(0).parse(mRanAccFile)) {
-            throw new EBMLParsingException("Unable to parse segment seek header properly");
+            // Parse the segment information
+            mSegmentHeaders.add(new MasterElement(Segment.HEADER, mRanAccFile.getFilePointer()));
+            if (!mSegmentHeaders.get(0).parse(mRanAccFile)) {
+                throw new EBMLParsingException("Unable to parse segment seek header properly");
+            }
         }
 
         // Handle cases for segment info at the bottom of the file
         long seekHeaderPosition = findPositionFromSegmentEntry(Segment.SEEK_HEAD);
         if (seekHeaderPosition != 0) {
-            mRanAccFile.seek(seekHeaderPosition);
-            mSegmentHeaders.add(new MasterElement(Segment.HEADER, seekHeaderPosition));
-            if (!mSegmentHeaders.get(1).parse(mRanAccFile)) {
-                throw new EBMLParsingException("Unable to parse segment seek header properly again");
+            synchronized (mRanAccFile) {
+                mRanAccFile.seek(seekHeaderPosition);
+                mSegmentHeaders.add(new MasterElement(Segment.HEADER, seekHeaderPosition));
+                if (!mSegmentHeaders.get(1).parse(mRanAccFile)) {
+                    throw new EBMLParsingException("Unable to parse segment seek header properly again");
+                }
             }
         }
 
@@ -258,10 +262,12 @@ public class EBMLReader {
         if (mInfoHeader == null) {
             findInfoPosition();
 
-            mRanAccFile.seek(mInfoPosition);
-            mInfoHeader = new MasterElement(Info.HEADER, mRanAccFile.getFilePointer());
-            if (!mInfoHeader.parse(mRanAccFile)) {
-                throw new EBMLParsingException("Unable to parse info properly");
+            synchronized (mRanAccFile) {
+                mRanAccFile.seek(mInfoPosition);
+                mInfoHeader = new MasterElement(Info.HEADER, mRanAccFile.getFilePointer());
+                if (!mInfoHeader.parse(mRanAccFile)) {
+                    throw new EBMLParsingException("Unable to parse info properly");
+                }
             }
 
             // Get the duration of the video
@@ -278,9 +284,11 @@ public class EBMLReader {
      */
     public long getTracksDataLength() throws IOException {
         findTracksPosition();
-        mRanAccFile.seek(mTracksPosition);
-        if ((mTracksLength = MasterElement.parseUpToLength(mRanAccFile, Tracks.ID)) == 0) {
-            throw new EBMLParsingException("Getting tracks read length in the wrong location");
+        synchronized (mRanAccFile) {
+            mRanAccFile.seek(mTracksPosition);
+            if ((mTracksLength = MasterElement.parseUpToLength(mRanAccFile, Tracks.ID)) == 0) {
+                throw new EBMLParsingException("Getting tracks read length in the wrong location");
+            }
         }
         return mTracksLength;
     }
@@ -295,9 +303,11 @@ public class EBMLReader {
         if (mAttachmentsPosition == 0) {
             return 0;
         }
-        mRanAccFile.seek(mAttachmentsPosition);
-        if ((mAttachmentsLength = MasterElement.parseUpToLength(mRanAccFile, Attachments.ID)) == 0) {
-            throw new EBMLParsingException("Getting attachments read length in the wrong location");
+        synchronized (mRanAccFile) {
+            mRanAccFile.seek(mAttachmentsPosition);
+            if ((mAttachmentsLength = MasterElement.parseUpToLength(mRanAccFile, Attachments.ID)) == 0) {
+                throw new EBMLParsingException("Getting attachments read length in the wrong location");
+            }
         }
         return mAttachmentsLength;
     }
@@ -309,9 +319,11 @@ public class EBMLReader {
      */
     public long getCuesDataLength() throws IOException {
         findCuesPosition();
-        mRanAccFile.seek(mCuesPosition);
-        if ((mCuesLength = MasterElement.parseUpToLength(mRanAccFile, Cues.ID)) == 0) {
-            throw new EBMLParsingException("Getting cues read length in the wrong location");
+        synchronized (mRanAccFile) {
+            mRanAccFile.seek(mCuesPosition);
+            if ((mCuesLength = MasterElement.parseUpToLength(mRanAccFile, Cues.ID)) == 0) {
+                throw new EBMLParsingException("Getting cues read length in the wrong location");
+            }
         }
         return mCuesLength;
     }
@@ -323,9 +335,11 @@ public class EBMLReader {
      */
     public long getChaptersDataLength() throws IOException {
         findChaptersPosition();
-        mRanAccFile.seek(mChaptersPosition);
-        if ((mChaptersLength = MasterElement.parseUpToLength(mRanAccFile, Chapters.ID)) == 0) {
-            throw new EBMLParsingException("Getting chapters read length in the wrong location");
+        synchronized (mRanAccFile) {
+            mRanAccFile.seek(mChaptersPosition);
+            if ((mChaptersLength = MasterElement.parseUpToLength(mRanAccFile, Chapters.ID)) == 0) {
+                throw new EBMLParsingException("Getting chapters read length in the wrong location");
+            }
         }
         return mChaptersLength;
     }
@@ -342,44 +356,46 @@ public class EBMLReader {
         if (mTracksHeader == null) {
             findTracksPosition();
 
-            mRanAccFile.seek(mTracksPosition);
-            mTracksHeader = new MasterElement(Tracks.HEADER, mRanAccFile.getFilePointer());
-            if (!mTracksHeader.parse(mRanAccFile)) {
-                throw new EBMLParsingException("Unable to parse tracks properly");
-            }
+            synchronized (mRanAccFile) {
+                mRanAccFile.seek(mTracksPosition);
+                mTracksHeader = new MasterElement(Tracks.HEADER, mRanAccFile.getFilePointer());
+                if (!mTracksHeader.parse(mRanAccFile)) {
+                    throw new EBMLParsingException("Unable to parse tracks properly");
+                }
 
-            // Build the subtitles and audio tracks and record valid track numbers
-            mSubtitles = new ArrayList<>();
-            mAudioTracks = new ArrayList<>();
-            mSubtitleTrackNumbers.clear();
-            for (ElementBase el : mTracksHeader.getElements()) {
-                MasterElement master = (MasterElement) el;
-                int type = master.getValueInt(Tracks.TYPE);
-                if (type == Tracks.Type.VIDEO) {
-                    mVideoTrackIndex = master.getValueInt(Tracks.NUMBER);
-                } else if (type == Tracks.Type.SUBTITLE) {
-                    MasterElement masterSubTrack = (MasterElement) el;
+                // Build the subtitles and audio tracks and record valid track numbers
+                mSubtitles = new ArrayList<>();
+                mAudioTracks = new ArrayList<>();
+                mSubtitleTrackNumbers.clear();
+                for (ElementBase el : mTracksHeader.getElements()) {
+                    MasterElement master = (MasterElement) el;
+                    int type = master.getValueInt(Tracks.TYPE);
+                    if (type == Tracks.Type.VIDEO) {
+                        mVideoTrackIndex = master.getValueInt(Tracks.NUMBER);
+                    } else if (type == Tracks.Type.SUBTITLE) {
+                        MasterElement masterSubTrack = (MasterElement) el;
 
-                    // Check to see if this subtitle element has compression
-                    boolean hasCompression = false;
-                    el = masterSubTrack.getElementFromPath(Tracks.CONTENT_ENCODINGS_ENTRY,
-                            Tracks.CONTENT_ENCODING, Tracks.CONTENT_COMPRESSION);
-                    if (el != null) {
-                        // We have compression in subtitles
-                        if (((MasterElement) el).getElements().size() > 0) {
-                            throw new UnsupportedOperationException("Have not implemented more complex compression for subtitles!");
+                        // Check to see if this subtitle element has compression
+                        boolean hasCompression = false;
+                        el = masterSubTrack.getElementFromPath(Tracks.CONTENT_ENCODINGS_ENTRY,
+                                Tracks.CONTENT_ENCODING, Tracks.CONTENT_COMPRESSION);
+                        if (el != null) {
+                            // We have compression in subtitles
+                            if (((MasterElement) el).getElements().size() > 0) {
+                                throw new UnsupportedOperationException("Have not implemented more complex compression for subtitles!");
+                            }
+                            hasCompression = true;
                         }
-                        hasCompression = true;
-                    }
 
-                    Subtitles subs = Subtitles.CreateSubsFromBlockGroup(masterSubTrack, hasCompression);
-                    assert (subs != null);
-                    mSubtitles.add(subs);
-                    mSubtitleTrackNumbers.add(subs.getTrackNumber());
-                } else if (type == Tracks.Type.AUDIO) {
-                    AudioTrack audioTrack = AudioTrack.fromMasterTrackElement((MasterElement) el);
-                    assert (audioTrack != null);
-                    mAudioTracks.add(audioTrack);
+                        Subtitles subs = Subtitles.CreateSubsFromBlockGroup(masterSubTrack, hasCompression);
+                        assert (subs != null);
+                        mSubtitles.add(subs);
+                        mSubtitleTrackNumbers.add(subs.getTrackNumber());
+                    } else if (type == Tracks.Type.AUDIO) {
+                        AudioTrack audioTrack = AudioTrack.fromMasterTrackElement((MasterElement) el);
+                        assert (audioTrack != null);
+                        mAudioTracks.add(audioTrack);
+                    }
                 }
             }
         }
@@ -398,10 +414,12 @@ public class EBMLReader {
                 return;
             }
 
-            mRanAccFile.seek(mAttachmentsPosition);
-            mAttachmentsHeader = new MasterElement(Attachments.HEADER, mRanAccFile.getFilePointer());
-            if (!mAttachmentsHeader.parse(mRanAccFile)) {
-                throw new EBMLParsingException("Unable to parse attachments properly");
+            synchronized (mRanAccFile) {
+                mRanAccFile.seek(mAttachmentsPosition);
+                mAttachmentsHeader = new MasterElement(Attachments.HEADER, mRanAccFile.getFilePointer());
+                if (!mAttachmentsHeader.parse(mRanAccFile)) {
+                    throw new EBMLParsingException("Unable to parse attachments properly");
+                }
             }
 
             mAttachments = new ArrayList<>();
@@ -477,28 +495,33 @@ public class EBMLReader {
                 if (entry.mSubEntries != null) {
                     // This entry has subtitles!
                     for (Cluster.Entry subEntry : entry.mSubEntries) {
-                        MasterElement clusterEl = new MasterElement(Cluster.ENTRY, subEntry.mStartAddress);
+                        long pos = -1;
                         int timecode = subEntry.mTimecode;
+                        synchronized (mRanAccFile) {
+                            MasterElement clusterEl = new MasterElement(Cluster.ENTRY, subEntry.mStartAddress);
 
-                        // Scan till after the id and length to properly get the position of the subtitle track
-                        mRanAccFile.seek(subEntry.mStartAddress);
-                        if (clusterEl.parseOnlyIdAndLength(mRanAccFile) == 0) {
-                            throw new EBMLException("Unable to parse cluster header info");
+                            // Scan till after the id and length to properly get the position of the subtitle track
+                            mRanAccFile.seek(subEntry.mStartAddress);
+                            if (clusterEl.parseOnlyIdAndLength(mRanAccFile) == 0) {
+                                throw new EBMLException("Unable to parse cluster header info");
+                            }
+
+                            // Go directly to the subtitle track data and parse the block
+                            mRanAccFile.skipBytes(subEntry.mRelativePosition);
+                            pos = mRanAccFile.getFilePointer();
                         }
-
-                        // Go directly to the subtitle track data and parse the block
-                        mRanAccFile.skipBytes(subEntry.mRelativePosition);
-                        long pos = mRanAccFile.getFilePointer();
                         MasterElement blockGroup = new MasterElement(Cluster.BLOCK_GROUP_NODE, pos);
                         if (!blockGroup.parse(mRanAccFile)) {
-                            // Rare case if author used simpleblock instead of block group since
-                            // simple block has no duration, making the subtitle useless, ignore it
-                            mRanAccFile.seek(pos);
-                            int id = ElementBase.readId(mRanAccFile);
-                            if (id == Cluster.SIMPLE_BLOCK) {
-                                continue;
+                            synchronized (mRanAccFile) {
+                                // Rare case if author used simpleblock instead of block group since
+                                // simple block has no duration, making the subtitle useless, ignore it
+                                mRanAccFile.seek(pos);
+                                int id = ElementBase.readId(mRanAccFile);
+                                if (id == Cluster.SIMPLE_BLOCK) {
+                                    continue;
+                                }
+                                throw new EBMLParsingException("Cannot parse block group");
                             }
-                            throw new EBMLParsingException("Cannot parse block group");
                         }
 
                         // Get the block track number and put it in the correct subtitle track
@@ -520,56 +543,58 @@ public class EBMLReader {
                     return true;
                 }
             } else {
-                // Cues did not tell us any subtitle locations, we need to read the entire cluster
-                boolean parsedAtLeastOneSub = false;
-                mRanAccFile.seek(entry.mStartAddress);
+                synchronized (mRanAccFile) {
+                    // Cues did not tell us any subtitle locations, we need to read the entire cluster
+                    boolean parsedAtLeastOneSub = false;
+                    mRanAccFile.seek(entry.mStartAddress);
 
-                while (true) {
-                    // Keep parsing till we reach the next cluster position set from Cues
-                    MasterElement clusterEl = new MasterElement(Cluster.ENTRY, mRanAccFile.getFilePointer());
-                    if (!clusterEl.parse(mRanAccFile, mSubtitleTrackNumbers, mClusterBlockReadOnlyEl)) {
-                        // End of clusters
-                        if (entry.mEndAddress != mCuesPosition - 1) {
-                            throw new EBMLParsingException("Unable to parse cluster header info");
+                    while (true) {
+                        // Keep parsing till we reach the next cluster position set from Cues
+                        MasterElement clusterEl = new MasterElement(Cluster.ENTRY, mRanAccFile.getFilePointer());
+                        if (!clusterEl.parse(mRanAccFile, mSubtitleTrackNumbers, mClusterBlockReadOnlyEl)) {
+                            // End of clusters
+                            if (entry.mEndAddress != mCuesPosition - 1) {
+                                throw new EBMLParsingException("Unable to parse cluster header info");
+                            }
+                            break;
                         }
-                        break;
-                    }
 
-                    // Sort each subtitle entry inside this cluster into its subtitle track
-                    int timecode = 0;
-                    for (ElementBase el : clusterEl.getElements()) {
-                        if (el.getType() == NodeBase.Type.MASTER) {
-                            BlockElement block = ((MasterElement) el).getBlockElement(Cluster.BLOCK_ID);
-                            if (block != null) {
-                                int blockTrackNumber = block.getTrackNumber();
-                                boolean sorted = false;
-                                for (Subtitles sub : mSubtitles) {
-                                    if (sub.getTrackNumber() == blockTrackNumber) {
-                                        sorted = true;
-                                        sub.appendBlock(block, timecode,
-                                                ((MasterElement) el).getValueInt(Cluster.BLOCK_DURATION));
-                                        parsedAtLeastOneSub = true;
+                        // Sort each subtitle entry inside this cluster into its subtitle track
+                        int timecode = 0;
+                        for (ElementBase el : clusterEl.getElements()) {
+                            if (el.getType() == NodeBase.Type.MASTER) {
+                                BlockElement block = ((MasterElement) el).getBlockElement(Cluster.BLOCK_ID);
+                                if (block != null) {
+                                    int blockTrackNumber = block.getTrackNumber();
+                                    boolean sorted = false;
+                                    for (Subtitles sub : mSubtitles) {
+                                        if (sub.getTrackNumber() == blockTrackNumber) {
+                                            sorted = true;
+                                            sub.appendBlock(block, timecode,
+                                                    ((MasterElement) el).getValueInt(Cluster.BLOCK_DURATION));
+                                            parsedAtLeastOneSub = true;
+                                        }
+                                    }
+                                    if (!sorted) {
+                                        throw new EBMLParsingException("Cannot parse block group for subtitles, is file corrupted?");
                                     }
                                 }
-                                if (!sorted) {
-                                    throw new EBMLParsingException("Cannot parse block group for subtitles, is file corrupted?");
-                                }
+                            } else if (el.getType() == NodeBase.Type.INT) {
+                                timecode = ((IntElement) el).getData();
+                            } else {
+                                throw new EBMLParsingException("Parsing cluster for subtitles gained useless data");
                             }
-                        } else if (el.getType() == NodeBase.Type.INT) {
-                            timecode = ((IntElement) el).getData();
-                        } else {
-                            throw new EBMLParsingException("Parsing cluster for subtitles gained useless data");
+                        }
+
+                        // Once we reach the next cluster position set from Cues, we can end the loop
+                        // The last entry will have an end address right before the cues, so scan till end
+                        if (entry.mEndAddress != mCuesPosition - 1 && mRanAccFile.getFilePointer() >= entry.mEndAddress) {
+                            break;
                         }
                     }
-
-                    // Once we reach the next cluster position set from Cues, we can end the loop
-                    // The last entry will have an end address right before the cues, so scan till end
-                    if (entry.mEndAddress != mCuesPosition - 1 && mRanAccFile.getFilePointer() >= entry.mEndAddress) {
-                        break;
-                    }
+                    entry.mHasParsed = true;
+                    return parsedAtLeastOneSub;
                 }
-                entry.mHasParsed = true;
-                return parsedAtLeastOneSub;
             }
         }
         return false;
@@ -659,10 +684,12 @@ public class EBMLReader {
         if (mCuesHeader == null) {
             findCuesPosition();
             if (mCuesPosition > 0) {
-                mRanAccFile.seek(mCuesPosition);
-                mCuesHeader = new MasterElement(Cues.HEADER, mCuesPosition);
-                if (!mCuesHeader.parse(mRanAccFile)) {
-                    throw new EBMLParsingException("Unable to parse cues properly");
+                synchronized (mRanAccFile) {
+                    mRanAccFile.seek(mCuesPosition);
+                    mCuesHeader = new MasterElement(Cues.HEADER, mCuesPosition);
+                    if (!mCuesHeader.parse(mRanAccFile)) {
+                        throw new EBMLParsingException("Unable to parse cues properly");
+                    }
                 }
 
                 mCueFrames = new ArrayList<>();
@@ -737,10 +764,12 @@ public class EBMLReader {
      * @throws IOException
      */
     public long readVideoStartAddressFromCues() throws IOException {
-        getCuesDataLength();
-        MasterElement pointNode = new MasterElement(Cues.POINT_NODE, mCuesPosition);
-        LongElement el = (LongElement) pointNode.parseElementIdOnce(mRanAccFile, Cues.CLUSTER_POSITION);
-        return el.getData() + mPositionOffset;
+        synchronized (mRanAccFile) {
+            getCuesDataLength();
+            MasterElement pointNode = new MasterElement(Cues.POINT_NODE, mCuesPosition);
+            LongElement el = (LongElement) pointNode.parseElementIdOnce(mRanAccFile, Cues.CLUSTER_POSITION);
+            return el.getData() + mPositionOffset;
+        }
     }
 
     /**
