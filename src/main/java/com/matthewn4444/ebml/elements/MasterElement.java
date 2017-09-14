@@ -20,6 +20,8 @@ import java.util.Set;
 
 public class MasterElement extends ElementBase {
 
+    public static int VOID = 0xEC;
+
     // Searching data
     protected int mSearchOnceId;
     protected ElementBase mSearchOnceFoundElement;
@@ -383,6 +385,9 @@ public class MasterElement extends ElementBase {
                     // Skip this data because it did not pass through the filter
                     raf.skipBytes(readLength(raf));
                 }
+            } else if (id == VOID) {
+                // This section is void, so ignore it
+                raf.skipBytes(readLength(raf));
             } else {
                 throw new EBMLParsingException(
                         "This master does not have id 0x"
