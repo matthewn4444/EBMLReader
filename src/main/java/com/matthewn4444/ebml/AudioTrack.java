@@ -15,6 +15,7 @@ public class AudioTrack extends Tracks {
         DTS("A_DTS"),
         AC3("A_AC3"),
         FLAC("A_FLAC"),
+        EAC3("A_EAC3"),
         UNKNOWN("Unknown");
 
         static Type fromString(String text) {
@@ -26,6 +27,8 @@ public class AudioTrack extends Tracks {
                 return AC3;
             } else if (text.equals(FLAC.mName)) {
                 return FLAC;
+            } else if (text.equals(EAC3.mName)) {
+                return EAC3;
             }
             return UNKNOWN;
         }
