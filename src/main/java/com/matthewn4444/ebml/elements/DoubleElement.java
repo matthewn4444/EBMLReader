@@ -9,20 +9,22 @@ import com.matthewn4444.ebml.node.NodeBase;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
-public class FloatElement extends ElementBase {
-    private float mData;
+public class DoubleElement extends ElementBase {
+    private double mData;
 
-    FloatElement(FloatNode nextNode, long position) {
-        super(NodeBase.Type.FLOAT, nextNode.id(), position);
+    DoubleElement(FloatNode nextNode, long position) {
+        super(NodeBase.Type.DOUBLE, nextNode.id(), position);
         mData = nextNode.getDefault();
     }
 
     /**
-     * Get the float data from this element entry
-     * @return float data
+     * Get the double data from this element entry
+     * @return double data
      */
-    public float getData() {
+    public double getData() {
         return mData;
     }
 
@@ -30,10 +32,12 @@ public class FloatElement extends ElementBase {
     boolean read(RandomAccessFile raf) throws IOException {
         super.read(raf);
 
-        if (mInnerLength == 4) {
-            mData = raf.readFloat();
+        if (mInnerLength == 8) {
+            byte[] bytes = new byte[8];
+            raf.read(bytes);
+            mData = ByteBuffer.wrap(bytes).order(ByteOrder.BIG_ENDIAN).getDouble();
         } else {
-            throw new EBMLParsingException("get float [id= " + hexId() + " @ 0x" +
+            throw new EBMLParsingException("get double [id= " + hexId() + " @ 0x" +
                     Long.toHexString(raf.getFilePointer()) + "] with len = " + mInnerLength
                     + " is not supported");
         }
@@ -43,7 +47,7 @@ public class FloatElement extends ElementBase {
     @Override
     public StringBuilder output(int level) {
         StringBuilder sb = super.output(level);
-        Log.v(TAG, sb.toString() + "FLOAT [" + hexId() + "]: " + mData);
+        Log.v(TAG, sb.toString() + "DOUBLE [" + hexId() + "]: " + mData);
         return null;
     }
 }

@@ -167,6 +167,7 @@ public class MasterElement extends ElementBase {
             case BYTES:
             case LONG:
             case FLOAT:
+            case DOUBLE:
             default:
                 break;
             }
@@ -240,6 +241,7 @@ public class MasterElement extends ElementBase {
                     return r;
                 }
             case UNSET:
+            case DOUBLE:
             case STRING:
             case BLOCK:
             case BYTES:
@@ -247,6 +249,26 @@ public class MasterElement extends ElementBase {
             case LONG:
             default:
                 break;
+            }
+        }
+        return defaultValue;
+    }
+
+    public double searchForDoubleValue(int id, double defaultValue) {
+        for (int i = 0; i < mElements.size(); i++) {
+            if (mElements.get(i).mType == NodeBase.Type.DOUBLE) {
+                if (mElements.get(i).id() == id) {
+                    return ((DoubleElement) mElements.get(i)).getData();
+                }
+            } else if (mElements.get(i).mType == NodeBase.Type.FLOAT) {
+                if (mElements.get(i).id() == id) {
+                    return ((FloatElement) mElements.get(i)).getData();
+                }
+            } else {
+                float value = searchForFloatValue(id, 0);
+                if (value != 0) {
+                    return value;
+                }
             }
         }
         return defaultValue;
@@ -260,6 +282,22 @@ public class MasterElement extends ElementBase {
         ElementBase el = getElement(id);
         if (el != null && el.mType == NodeBase.Type.FLOAT) {
             return ((FloatElement) el).getData();
+        }
+        return defaultValue;
+    }
+
+    public double getDoubleLong(int id) {
+        return getDoubleLong(id, 0);
+    }
+
+    public double getDoubleLong(int id, double defaultValue) {
+        ElementBase el = getElement(id);
+        if (el != null) {
+            if (el.mType == NodeBase.Type.DOUBLE) {
+                return ((DoubleElement) el).getData();
+            } else if (el.mType == NodeBase.Type.FLOAT) {
+                return ((FloatElement) el).getData();
+            }
         }
         return defaultValue;
     }
@@ -366,7 +404,17 @@ public class MasterElement extends ElementBase {
                         element = new ByteElement((ByteNode) nextNode, position);
                         break;
                     case FLOAT:
-                        element = new FloatElement((FloatNode) nextNode, position);
+                        long currentPosition = raf.getFilePointer();
+                        int length = readLength(raf);
+                        if (length == 4) {
+                            element = new FloatElement((FloatNode) nextNode, position);
+                        } else if (length == 8) {
+                            element = new DoubleElement((FloatNode) nextNode, position);
+                        } else {
+                            throw new EBMLParsingException("Cannot determine type of float or " +
+                                    "double for this element");
+                        }
+                        raf.seek(currentPosition);
                         break;
                     default:
                         throw new EBMLParsingException(
