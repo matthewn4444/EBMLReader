@@ -201,7 +201,10 @@ public abstract class Subtitles extends Tracks {
         if (mName != null) {
             sb.append(mName);
         }
-        return sb.append(" [").append(mLanguage).append(']').toString();
+        if (mLanguage != null) {
+            sb.append(" [").append(mLanguage).append(']');
+        }
+        return sb.toString();
     }
 
     @Override
