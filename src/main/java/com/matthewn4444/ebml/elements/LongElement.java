@@ -44,7 +44,15 @@ public class LongElement extends ElementBase {
             mData = raf.readInt() & 0x00000000ffffffffL;        // Convert the signed int to unsigned long
             break;
         case 5:
-            mData = ((raf.readByte() & 0xFF) << 32) | (raf.readInt() & 0x00000000ffffffffL);
+            mData = ((long)(raf.readByte() & 0xFF) << 32) | (raf.readInt() & 0x00000000ffffffffL);
+            break;
+        case 6:
+            raf.seek(raf.getFilePointer() - 2);
+            mData = raf.readLong() & 0x0000ffffffffffffL;
+            break;
+        case 7:
+            raf.seek(raf.getFilePointer() - 1);
+            mData = raf.readLong() & 0x00ffffffffffffffL;
             break;
         case 8:
             mData = raf.readLong();
