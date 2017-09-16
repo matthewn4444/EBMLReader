@@ -57,6 +57,7 @@ public abstract class ElementBase {
      * @throws IOException
      */
     protected synchronized static int readBytes(RandomAccessFile raf, boolean readAsLength) throws IOException {
+        long pos = raf.getFilePointer();
         int b1 = raf.readByte() & 0xFF;
 
         if ((b1 & 0x80) != 0) {
@@ -70,8 +71,16 @@ public abstract class ElementBase {
         }
         else if ((b1 & 0x10) != 0) {
             return (b1 - (readAsLength ? 0x10 : 0)) << 24 | ((raf.readByte() & 0xFF) << 16) | ((raf.readByte() & 0xFF) << 8) | (raf.readByte() & 0xFF);
+        }
+        else if (b1 == 0x01) {
+            // TODO if this errors because long -> int shortens the number, fix to return long
+            raf.seek(pos);
+            long length = raf.readLong();
+            return (int) (readAsLength ? length & 0x00ffffffffffffffL : length);
         } else {
-            throw new EBMLParsingException("Unable to get length from stream.");
+            throw new EBMLParsingException("Unable to get length from stream. [Byte: 0x"
+                    + Integer.toHexString(b1) + " @ 0x" + Long.toHexString(pos)
+                    + "]");
         }
     }
 
@@ -88,7 +97,6 @@ public abstract class ElementBase {
      * @throws IOException
      */
     boolean read(RandomAccessFile raf) throws IOException {
-        long pos = raf.getFilePointer();
         mInnerLength = readLength(raf);
         mLength = raf.getFilePointer() - mPosition + mInnerLength;
         return true;
