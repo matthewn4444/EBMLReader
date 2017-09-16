@@ -430,6 +430,19 @@ public class EBMLReader {
     }
 
     /**
+     * See if there are attachments in the video. If attachments was not parsed, it will look for it
+     * from the segments after reading the header.
+     * @return whether or not the video has any attachments
+     * @throws IOException
+     */
+    public boolean hasAttachments() throws IOException {
+        if (mAttachmentsHeader == null) {
+            findAttachmentsPosition();
+        }
+        return mAttachmentsPosition > 0;
+    }
+
+    /**
      * Gets the amount of video cues inside the video file
      * Use this to get the total amount of cues to parse the subtitles
      * @return the amount of video cues
