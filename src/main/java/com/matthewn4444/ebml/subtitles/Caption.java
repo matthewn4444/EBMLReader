@@ -68,57 +68,64 @@ public abstract class Caption {
     private final TimePoint mEnd;
     private final Subtitles.Type mType;
     private final boolean mIsCompressed;
-    private final Inflater decompressor;
-
-    private byte[] mData;
-    private String mContent;
+    private final Inflater mDecompressor;
+    private final BlockElement mBlock;
 
     public Caption(Subtitles.Type type, BlockElement block, int timecode, int duration, boolean isCompressed) {
         mType = type;
+        mBlock = block;
         mIsCompressed = isCompressed;
-        mData = block.getData();
         int start = block.getTimecode() + timecode;
         mStart = new TimePoint(start);
         mEnd = new TimePoint(start + duration);
-        decompressor = new Inflater();
+        mDecompressor = new Inflater();
     }
 
     public abstract String getFormattedText();
     public abstract String getFormattedVTT();
 
-    public String getData() {
-        if (mContent == null) {
-            try {
-                if (mIsCompressed) {
-                    // Run zlib decompression on these bytes
-                    decompressor.setInput(mData);
-                    ByteArrayOutputStream bos = new ByteArrayOutputStream(mData.length);
-                    try {
-                        byte[] buf = new byte[1024];
-                        while (!decompressor.finished()) {
-                            int count = decompressor.inflate(buf);
-                            bos.write(buf, 0, count);
-                        }
-                        mContent = new String(bos.toByteArray(), "utf8");
-                    } catch (DataFormatException e) {
-                        e.printStackTrace();
-                    } finally {
-                        try {
-                            bos.close();
-                        } catch (IOException ignored) {
-                        }
+    public byte[] getByteData() {
+        try {
+            byte[] data = mBlock.readData();
+            if (mIsCompressed) {
+                // Run zlib decompression on these bytes
+                mDecompressor.setInput(data);
+                ByteArrayOutputStream bos = new ByteArrayOutputStream(data.length);
+                try {
+                    byte[] buf = new byte[1024];
+                    while (!mDecompressor.finished()) {
+                        int count = mDecompressor.inflate(buf);
+                        bos.write(buf, 0, count);
                     }
-                } else {
-                    mContent = new String(mData, "utf8");
+                    return bos.toByteArray();
+                } catch (DataFormatException e) {
+                    e.printStackTrace();
+                } finally {
+                    try {
+                        bos.close();
+                    } catch (IOException ignored) {
+                    }
                 }
-            } catch (UnsupportedEncodingException e) {
-                e.printStackTrace();
-                mContent = "";
-            } finally {
-                mData = null;
+            } else {
+                return data;
             }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-        return mContent;
+        return null;
+    }
+
+    public String getStringData() {
+        byte[] data = getByteData();
+        if (data == null) {
+            return null;
+        }
+        try {
+            return new String(data, "utf8");
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 
     public TimePoint getStartTime() {

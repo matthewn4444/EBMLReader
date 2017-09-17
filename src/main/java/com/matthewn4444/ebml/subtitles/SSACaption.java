@@ -14,7 +14,7 @@ public class SSACaption extends Caption {
     public String getFormattedText() {
         if (mCachedData == null) {
             StringBuilder sb = new StringBuilder();
-            String text = getData();
+            String text = getStringData();
             int start = text.indexOf(",");
             if (start != -1) {
                 int start2 = text.indexOf(",", start + 1);
@@ -42,7 +42,7 @@ public class SSACaption extends Caption {
     public String getFormattedVTT() {
         // TODO do this properly
         if (mCachedVTT == null) {
-            String[] sections = getData().split(",", 9);
+            String[] sections = getStringData().split(",", 9);
             String style = sections[2];
             if (style.equalsIgnoreCase("Default")) {
                 String dialogue = sections[8];

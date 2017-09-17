@@ -383,7 +383,7 @@ public class MasterElement extends ElementBase {
                                 continue;
                             }
                         }
-                        element = new BlockElement((BlockNode) nextNode, position);
+                        element = new BlockElement((BlockNode) nextNode, raf, position);
                         break;
                     case MASTER:
                         // Parse master differently

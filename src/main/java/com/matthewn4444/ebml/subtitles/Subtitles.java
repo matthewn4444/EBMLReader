@@ -1,5 +1,7 @@
 package com.matthewn4444.ebml.subtitles;
 
+import android.util.Log;
+
 import com.matthewn4444.ebml.Tracks;
 import com.matthewn4444.ebml.elements.BlockElement;
 import com.matthewn4444.ebml.elements.IntElement;
@@ -14,15 +16,17 @@ import java.util.ArrayList;
 import java.util.List;
 
 public abstract class Subtitles extends Tracks {
+    public static final String TAG = "Subtitles";
     public static final String SSA_CODEC_ID = "S_TEXT/ASS";
     public static final String SRT_CODEC_ID = "S_TEXT/UTF8";
+    public static final String PGS_CODEC_ID = "S_HDMV/PGS";
 
-    public static enum Type {
-        SSA, SRT
+    public enum Type {
+        SSA, SRT, PGS
     };
 
     protected final boolean mIsCompressed;
-    protected Type mType;
+    protected final Type mType;
 
     protected final ArrayList<Caption> mUnreadCaptions;
     protected final ArrayList<Caption> mReadCaptions;
@@ -43,21 +47,27 @@ public abstract class Subtitles extends Tracks {
             boolean isDefault = defaultEl == null || defaultEl.getData() == 1;
             String name = blockgroup.getValueString(Tracks.NAME);
             String language = blockgroup.getValueString(Tracks.LANGUAGE);
-            if (blockgroup.getValueString(Tracks.CODEC_ID).equals(SSA_CODEC_ID)) {
+            String codecID = blockgroup.getValueString(Tracks.CODEC_ID);
+            if (codecID.equals(SSA_CODEC_ID)) {
                 return new SSASubtitles(trackNumber, blockgroup.getFilePosition(),
                         blockgroup.getFileLength(), isEnabled, isDefault, name, language,
                         blockgroup.getValueString(Tracks.CODEC_PRIVATE), hasCompression);
-            } else {
+            } else if (codecID.equals(SRT_CODEC_ID)) {
                 return new SRTSubtitles(trackNumber, blockgroup.getFilePosition(),
                         blockgroup.getFileLength(), isEnabled, isDefault, name, language,
                         hasCompression);
+            } else if (codecID.equals(PGS_CODEC_ID)) {
+                return new PGSSubtitles(trackNumber, blockgroup.getFilePosition(),
+                        blockgroup.getFileLength(), isEnabled, isDefault, name, language,
+                        hasCompression);
             }
+            Log.w(TAG, "Unable to parse subtitles codec id: " + codecID);
         }
         return null;
     }
 
-    Subtitles(Type type, int trackNumber, long position, long size, boolean isEnabled,
-              boolean isDefault, String name, String language, boolean isCompressed) {
+    Subtitles(Type type, int trackNumber, long position, long size,
+              boolean isEnabled, boolean isDefault, String name, String language, boolean isCompressed) {
         super(trackNumber, position, size, isEnabled, isDefault, name, language);
         mIsCompressed = isCompressed;
         mType = type;

@@ -17,7 +17,7 @@ public class SRTCaption extends Caption {
             sb.append(" --> ");
             formatTimePoint(getEndTime(), sb);
             sb.append('\n')
-                .append(getData())
+                .append(getStringData())
                 .append("\n\n");
             mCachedData = sb.toString();
         }
@@ -26,7 +26,7 @@ public class SRTCaption extends Caption {
 
     @Override
     public String getFormattedVTT() {
-        return getData();
+        return getStringData();
     }
 
     @Override

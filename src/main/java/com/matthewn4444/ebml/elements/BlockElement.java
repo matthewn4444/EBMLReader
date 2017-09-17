@@ -17,10 +17,14 @@ import java.util.Set;
  * This will contain all the information gained from parsing track data from cluster entries
  */
 public class BlockElement extends ElementBase {
-    private byte[] mData;
+    private final RandomAccessFile mRaf;
+
     private int mTrackNumber;
     private int mTimecode;
     private int mFlag;
+
+    private long mDataPosition;
+    private int mDataLength;
 
     /**
      * Quickly scan the block data whether to read it or not depending if we whitelisted the track
@@ -45,8 +49,9 @@ public class BlockElement extends ElementBase {
         return false;
     }
 
-    BlockElement(BlockNode node, long position) {
+    BlockElement(BlockNode node, RandomAccessFile raf, long position) {
         super(NodeBase.Type.BLOCK, node.id(), position);
+        mRaf = raf;
         mTrackNumber = 0;
         mTimecode = 0;
         mFlag = 0;
@@ -56,8 +61,20 @@ public class BlockElement extends ElementBase {
      * Get the bytes of data, could be compressed
      * @return data
      */
-    public byte[] getData() {
-        return mData;
+    public byte[] readData() throws IOException {
+        // TODO refactor this code with byteElement in super class
+        long pos = -1;
+        try {
+            mRaf.seek(mDataPosition);
+            byte[] data = new byte[mDataLength];
+            pos = mRaf.getFilePointer();
+            mRaf.read(data);
+            return data;
+        } finally {
+            if (pos != -1) {
+                mRaf.seek(pos);
+            }
+        }
     }
 
     /**
@@ -89,11 +106,9 @@ public class BlockElement extends ElementBase {
         if (mFlag >= 5) {
             throw new EBMLParsingException("Parsing block entries with flags above 5 is not implemented yet");
         }
-
-        // Copy the text out
-        int contentLength = (int)(mInnerLength - (raf.getFilePointer() - start));
-        mData = new byte[contentLength];
-        raf.read(mData);
+        mDataPosition = raf.getFilePointer();
+        mDataLength = (int)(mInnerLength - (mDataPosition - start));
+        raf.skipBytes(mDataLength);
         return true;
     }
 
