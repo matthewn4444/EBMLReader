@@ -734,9 +734,15 @@ public class EBMLReader {
                         currentVidEntry = new Cluster.Entry(cueTime, address);
                         mCueFrames.add(currentVidEntry);
                     } else if (mSubtitleTrackNumbers.contains(trackNumber)) {
-                        assert currentVidEntry != null;
+                        // First entry in cues is a track for subtitles, use cue address
+                        if (currentVidEntry == null) {
+                            currentVidEntry = new Cluster.Entry(cueTime, address);
+                            mCueFrames.add(currentVidEntry);
+                        }
+
+                        // Add a new cue entry here for more fine tune control over subtitles since
+                        // we didn't specify a cluster entry here before
                         if (address != currentVidEntry.mStartAddress) {
-                            // Add a new cue entry here for more fine tune control over subtitles since we didn't specify a cluster entry here before
                             currentVidEntry.mEndAddress = address - 1;
                             currentVidEntry.mNextTimecode = cueTime;
                             currentVidEntry = new Cluster.Entry(cueTime, address);
