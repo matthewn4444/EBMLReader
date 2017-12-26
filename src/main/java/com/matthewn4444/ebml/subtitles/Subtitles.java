@@ -95,9 +95,7 @@ public abstract class Subtitles extends Tracks {
     public List<Caption> readUnreadSubtitles() {
         synchronized (mUnreadCaptions) {
             ArrayList<Caption> list = new ArrayList<>();
-            for (Caption caption : mUnreadCaptions) {
-                list.add(caption);
-            }
+            list.addAll(mUnreadCaptions);
 
             // Transfer the unread captions to read
             mReadCaptions.addAll(mUnreadCaptions);

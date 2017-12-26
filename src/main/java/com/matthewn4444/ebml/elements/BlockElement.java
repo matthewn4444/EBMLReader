@@ -62,16 +62,15 @@ public class BlockElement extends ElementBase {
      * @return data
      */
     public byte[] readData() throws IOException {
-        // TODO refactor this code with byteElement in super class
-        long pos = -1;
-        try {
-            mRaf.seek(mDataPosition);
-            byte[] data = new byte[mDataLength];
-            pos = mRaf.getFilePointer();
-            mRaf.read(data);
-            return data;
-        } finally {
-            if (pos != -1) {
+        synchronized (mRaf) {
+            // TODO refactor this code with byteElement in super class
+            long pos = mRaf.getFilePointer();
+            try {
+                mRaf.seek(mDataPosition);
+                byte[] data = new byte[mDataLength];
+                mRaf.read(data);
+                return data;
+            } finally {
                 mRaf.seek(pos);
             }
         }

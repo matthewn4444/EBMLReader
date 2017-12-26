@@ -22,10 +22,10 @@ public class SSASubtitles extends Subtitles {
         StringBuilder sb = new StringBuilder();
         sb.append(mHeaderData);
         for (int i = 0; i < mReadCaptions.size(); i++) {
-            sb.append(mReadCaptions.get(i).getFormattedText());
+            sb.append(mReadCaptions.get(i).getFormattedText()).append("\n");
         }
         for (int i = 0; i < mUnreadCaptions.size(); i++) {
-            sb.append(mUnreadCaptions.get(i).getFormattedText());
+            sb.append(mUnreadCaptions.get(i).getFormattedText()).append("\n");
         }
         return sb.toString();
     }
