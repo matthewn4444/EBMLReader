@@ -437,9 +437,9 @@ public class MasterElement extends ElementBase {
                 // This section is void, so ignore it
                 raf.skipBytes(readLength(raf));
             } else {
-                throw new EBMLParsingException(
-                        "This master does not have id 0x"
-                                + Integer.toHexString(id) + " in its schema");
+                Log.w(TAG, "This master does not have id 0x"
+                        + Integer.toHexString(id) + " in its schema");
+                raf.skipBytes(readLength(raf));
             }
         }
         return true;
